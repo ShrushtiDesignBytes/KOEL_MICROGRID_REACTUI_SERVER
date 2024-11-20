@@ -1,0 +1,17 @@
+{
+  "graph": [
+    { "hour": 8, "power": 15 },
+    { "hour": 9, "power": 25 },
+    { "hour": 10, "power": 20 },
+    { "hour": 11, "power": 20 },
+    { "hour": 12, "power": 40 },
+    { "hour": 13, "power": 35 },
+    { "hour": 14, "power": 25 },
+    { "hour": 15, "power": 30 },
+    { "hour": 16, "power": 40 }
+  ],
+  "pieChart": {
+    "labels": ["Genset", "Mains", "ESS", "Biogas", "Wind", "Solar"],
+    "values": [5, 15, 10, 30, 10, 20]
+  }
+}
