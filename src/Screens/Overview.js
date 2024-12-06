@@ -398,7 +398,7 @@ const Overview = ({ BaseUrl}) => {
                 </div>
             </div>
             {/* Third Row Section */}
-            <div className="grid grid-cols-[36%_22%_22%_17%] mt-2 gap-4 mr-2">
+            <div className="grid grid-cols-[35.8%_22%_22%_17%] mt-2 gap-4 mr-2">
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
                         <img src="assets/Vector 3.svg" className="p-1.5 w-[160px]" alt='image' />
@@ -477,7 +477,7 @@ const Overview = ({ BaseUrl}) => {
                 </div>
             </div>
             {/* Fourth Row Section */}
-            <div className="grid grid-cols-[36%_18%_44%] gap-4 pr-3 pb-5 mt-3.5">
+            <div className="grid grid-cols-[36%_18%_44.2%] gap-4 pr-3 pb-5 mt-3.5">
                 <div className="grid">
                     <div className="bg-[#051e1c] rounded-lg pr-5 flex flex-col justify-evenly">
                         <div className="flex items-center justify-between gap-5 ml-5">
