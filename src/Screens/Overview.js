@@ -4,8 +4,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import Chart from 'chart.js/auto';
 
-const Overview = ({ BaseUrl}) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
+const Overview = ({ BaseUrl }) => {
     const myDatavizRef = useRef(null);
     const doughnutChartRef = useRef(null);
     const doughnutChartInstanceRef = useRef(null);
@@ -14,7 +13,8 @@ const Overview = ({ BaseUrl}) => {
     const [imageLoaded, setImageLoaded] = useState(false);
     let resizeTimeout = null;
     const [data, setData] = useState({});
-    
+    const [currentGroup, setCurrentGroup] = useState(0);
+
     const fetchConfig = () => {
         fetch(`${BaseUrl}/overview`)
             .then((response) => response.json())
@@ -43,11 +43,6 @@ const Overview = ({ BaseUrl}) => {
 
         return () => clearInterval(interval);
     }, []);
-
-
-    const handleDotClick = (index) => {
-        setCurrentIndex(index);
-    };
 
 
     const fetchData = () => {
@@ -246,19 +241,45 @@ const Overview = ({ BaseUrl}) => {
         { src: "assets/image 12.png", label: "WIND", hours: !loading && data.wind.operatinghours, generations: !loading && data.wind.powergenerated },
         { src: "assets/image 13.png", label: "SOLAR", hours: !loading && data.solar.operatinghours, generations: !loading && data.solar.powergenerated },
         { src: "assets/image 11.png", label: "BIOGAS", hours: !loading && data.biogas.operatinghours, generations: !loading && data.biogas.powergenerated },
+    //    { src: "assets/image 15.png", label: "GENSET", hours: !loading && data.genset.operatinghours, generations: !loading && data.genset.powergenerated },
     ];
+
+    const imagesPerGroup = 3;
+    const totalGroups = Math.ceil(images.length / imagesPerGroup);
+
+    const handlePrev = () => {
+        if (currentGroup > 0) {
+            setCurrentGroup((prev) => prev - 1);
+        }
+    };
+
+    const handleNext = () => {
+        if (currentGroup < totalGroups - 1) {
+            setCurrentGroup((prev) => prev + 1);
+        }
+    };
+
+    const handleDotClick = (groupIndex) => {
+        if (groupIndex < currentGroup) {
+            handlePrev();
+        } else if (groupIndex > currentGroup) {
+            handleNext();
+        }
+    };
+
+    const startIndex = currentGroup * imagesPerGroup;
+    const endIndex = startIndex + imagesPerGroup;
 
     return (
         !loading && <div className="p-4">
             {/* First Row Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 {/* Left Section */}
-                <div>
+                <div className='overflow-hidden'>
                     <div
-                        className="grid grid-cols-1 sm:grid-cols-3 transition-transform duration-500 gap-3 xl:gap-5 h-[45vh]"
-                        style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+                        className="grid grid-cols-1 sm:grid-cols-3 transition-transform duration-500 gap-3 xl:gap-5 h-[45vh] ease-in-out "
                     >
-                        {images.map((image, index) => (
+                        {images.slice(startIndex, endIndex).map((image, index) => (
                             <div key={index} className="relative flex-shrink-0 w-full">
                                 <img
                                     src={image.src}
@@ -284,10 +305,10 @@ const Overview = ({ BaseUrl}) => {
 
                     {/* Pagination Dots */}
                     <div className="flex justify-end mt-2 xl:mt-5 space-x-2">
-                        {images.map((_, index) => (
+                        {Array.from({ length: 3 }).map((_, groupIndex) => (
                             <span
-                                key={index}
-                                onClick={() => handleDotClick(index)}
+                                key={groupIndex}
+                                onClick={() => handleDotClick(groupIndex)}
                                 className='h-2 w-2 rounded-full cursor-pointer bg-[#0F5B53]'
                             ></span>
                         ))}
