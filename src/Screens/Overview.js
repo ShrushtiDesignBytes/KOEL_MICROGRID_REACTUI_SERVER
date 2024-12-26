@@ -19,8 +19,8 @@ const Overview = ({ BaseUrl }) => {
         fetch(`${BaseUrl}/overview`)
             .then((response) => response.json())
             .then((data) => {
-                if (data.length > 0) {
-                    const sortedData = data.sort((a, b) => a.id - b.id);
+                if (data.overview.length > 0) {
+                    const sortedData = data.overview.sort((a, b) => a.id - b.id);
                     console.log(sortedData)
                     setData(sortedData[sortedData.length - 1]);
                     setLoading(false);
