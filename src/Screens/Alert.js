@@ -36,17 +36,9 @@ const Alert = ({BaseUrl}) => {
             console.log(recentNotifications);
            
             setNotifications(data);
-            sendNotifications(data);
         } catch (error) {
             console.error('Fetch Error:', error);
         }
-    };
-
-    const sendNotifications = async (notificationsArray) => {
-        for (const notification of notificationsArray) {
-          //  await updateData(notification);
-        }
-        console.log('All notifications updated successfully');
     };
 
       useEffect(() => {

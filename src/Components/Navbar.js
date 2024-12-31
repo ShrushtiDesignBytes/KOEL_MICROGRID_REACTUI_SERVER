@@ -1,6 +1,7 @@
 import React from 'react';
 import { IoIosSearch } from "react-icons/io";
 import { IoNotificationsOutline } from "react-icons/io5";
+import { CiUser } from "react-icons/ci";
 
 const Navbar = () => {
     return (
@@ -21,7 +22,10 @@ const Navbar = () => {
                     <IoNotificationsOutline color="white" />
                 </div>
                 <div className="relative inline-block cursor-pointer group">
-                    <img src="./assets/user.png" alt="" width="24" height="24" />
+                    <div className=" w-7 h-7 bg-[#062A30] rounded-full flex items-center justify-center">
+                        <CiUser color='white' className="transform scale-125" />
+                    </div>
+
                     <div className="absolute right-0 hidden p-5 bg-[#0a3d38] rounded-md z-10 group-hover:block">
                         <h1 className="text-white text-base whitespace-nowrap font-bold">Account Settings</h1>
                         <div className="inline-flex items-center mt-2">
