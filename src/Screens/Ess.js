@@ -19,7 +19,6 @@ const Ess = ({ BaseUrl }) => {
             }
             const data = await response.json();
             const sortedData = data.sort((a, b) => a.id - b.id);
-            console.log(sortedData)
             setData(sortedData[sortedData.length - 1]);
             setLoading(false);
             const responsealert = await fetch(`${BaseUrl}/alert`);

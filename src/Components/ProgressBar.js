@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 
 const ProgressBar = ({ value }) => {
-  console.log("Received value:", value); // Log the received value
 
   // Configuration
   const totalBars = 10; 

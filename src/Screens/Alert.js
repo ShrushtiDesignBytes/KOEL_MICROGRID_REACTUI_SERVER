@@ -13,7 +13,6 @@ const Alert = ({BaseUrl}) => {
             }
 
             const data = await response.json();
-            console.log(data) 
           
             const now = new Date();
             const fiveDaysAgo = new Date();
@@ -33,7 +32,6 @@ const Alert = ({BaseUrl}) => {
                 return notificationDate >= fiveDaysAgo;
             });
     
-            console.log(recentNotifications);
            
             setNotifications(data);
         } catch (error) {

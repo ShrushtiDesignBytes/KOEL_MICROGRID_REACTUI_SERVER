@@ -19,7 +19,6 @@ const Solar = ({ BaseUrl }) => {
             try {
                 const response = await fetch(`${BaseUrl}/solar/chart`);
                 const result = await response.json();
-                console.log(result)
                 setChartData(result);
             } catch (error) {
                 console.error('Error fetching power data:', error);
@@ -40,7 +39,6 @@ const Solar = ({ BaseUrl }) => {
             }
             const data = await response.json();
             const sortedData = data.sort((a, b) => a.id - b.id);
-            console.log(sortedData)
             setData(sortedData[sortedData.length - 1]);
             setLoading(false);
         } catch (error) {
@@ -303,7 +301,7 @@ const Solar = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 gap-3 flex flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">
                                     <img src="assets/Icons (5).svg" alt="icon" />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="hours" alt='image'>{data.avg_hours_operated}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="hours" alt='image'>{data.hours_operated_yesterday}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Hours Operated Yesterday</p>
                             </div>

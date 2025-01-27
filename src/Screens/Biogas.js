@@ -19,7 +19,6 @@ const Biogas = ({ BaseUrl }) => {
             try {
                 const response = await fetch(`${BaseUrl}/biogas/chart`);
                 const result = await response.json();
-                console.log(result)
                 setChartData(result);
             } catch (error) {
                 console.error('Error fetching power data:', error);
@@ -40,7 +39,6 @@ const Biogas = ({ BaseUrl }) => {
             }
             const data = await response.json();
             const sortedData = data.sort((a, b) => a.id - b.id);
-            console.log(sortedData)
             setData(sortedData[sortedData.length - 1]);
             setLoading(false);
         } catch (error) {
