@@ -3,8 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import Chart from 'chart.js/auto';
+import { calculatePercentages, calculateAverageCurrent, calculateAverageVoltageL_L, calculateAverageVoltageL_N } from '../Components/Calculation';
 
-const Overview = ({ BaseUrl }) => {
+const Overview = ({ BaseUrl, Url }) => {
+    const [currentGroup, setCurrentGroup] = useState(0);
     const myDatavizRef = useRef(null);
     const doughnutChartRef = useRef(null);
     const doughnutChartInstanceRef = useRef(null);
@@ -13,26 +15,41 @@ const Overview = ({ BaseUrl }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
     let resizeTimeout = null;
     const [data, setData] = useState({});
-    const [currentGroup, setCurrentGroup] = useState(0);
+    const [alldata, setAllData] = useState({});
+    const [chartData, setChartData] = useState([]);
+
+    useEffect(() => {
+        const fetchPowerData = async () => {
+            try {
+                const response = await fetch(`${BaseUrl}/overview/chart`);
+                const result = await response.json();
+                console.log(result)
+                setChartData(result);
+            } catch (error) {
+                console.error('Error fetching power data:', error);
+            }
+        };
+
+        fetchPowerData();
+        const interval = setInterval(fetchPowerData, 15 * 60 * 1000); // 15 minutes
+
+        return () => clearInterval(interval);
+    }, []);
 
     const fetchConfig = () => {
         fetch(`${BaseUrl}/overview`)
             .then((response) => response.json())
             .then((data) => {
-                if (data.overview.length > 0) {
-                    const sortedData = data.overview.sort((a, b) => a.id - b.id);
-                    console.log(sortedData)
-                    setData(sortedData[sortedData.length - 1]);
-                    setLoading(false);
-                } else {
-                    console.error("No data found in response.");
-                    setLoading(false);
-                }
+                console.log(data)
+                setAllData(data)
+                setData(data.overview);
+                setLoading(false);
             })
             .catch((error) => {
                 console.error("Error fetching data:", error);
             });
     };
+
 
     useEffect(() => {
         fetchConfig();
@@ -44,20 +61,29 @@ const Overview = ({ BaseUrl }) => {
         return () => clearInterval(interval);
     }, []);
 
+    const datas = !loading && {
+        solar: alldata.solar.avg_total_generation,
+        wind: alldata.wind.avg_total_generation,
+        biogas: alldata.biogas.avg_total_generation,
+        ess: alldata.ess.avg_total_generation,
+        genset: alldata.genset.avg_total_generation,
+        mains: alldata.mains.avg_total_generation
+    }
+
+    const chartdata = calculatePercentages(datas);
+
+    var current = !loading && calculateAverageCurrent(alldata);
+    var voltageL_L = !loading && calculateAverageVoltageL_L(alldata);
+    var voltageL_N = !loading && calculateAverageVoltageL_N(alldata);
 
     const fetchData = () => {
         if (imageLoaded && !loading) {
-            fetch('./dummy_data.json')
-                .then((response) => response.json())
-                .then((data) => {
-                    const filteredData = data.graph.filter((d) => d.hour >= 8 && d.hour <= 16);
-                    displayDataCurveGraph(filteredData);
-                    const labels = data.pieChart.labels;
-                    const values = data.pieChart.values;
-                    displayDoughnutChart(labels, values);
-                }).catch((error) => console.error('Error fetching data:', error));
-        }
+            displayDataCurveGraph(chartData);
 
+            const labels = chartdata.labels;
+            const values = chartdata.values;
+            displayDoughnutChart(labels, values);
+        }
     };
 
     useEffect(() => {
@@ -88,7 +114,6 @@ const Overview = ({ BaseUrl }) => {
     };
 
     const displayDataCurveGraph = (data) => {
-
         if (!myDatavizRef.current || !myDatavizRef.current.parentElement) {
             console.error("Graph container or its parent doesn't exist.");
             return;
@@ -114,23 +139,46 @@ const Overview = ({ BaseUrl }) => {
             .append('g')
             .attr('transform', `translate(${margin.left},${margin.top})`);
 
-        const x = d3.scaleLinear().domain([8, 16]).range([0, width]);
-        const y = d3.scaleLinear().domain([0, d3.max(data, (d) => +d.power)]).nice().range([height, 0]);
+        // Calculate dynamic x-axis domain based on data
+        const now = new Date();
+        const currentHour = now.getHours();
+        const pastHour = currentHour - 8 < 0 ? 24 + (currentHour - 8) : currentHour - 8;
+
+        const x = d3.scaleLinear()
+            .domain([pastHour, currentHour])
+            .range([0, width]);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(data, d => +d.power)]).nice()
+            .range([height, 0]);
+
+        // Define a clip path to restrict the curve and area to the chart area
+        svg.append("defs")
+            .append("clipPath")
+            .attr("id", "clip")
+            .append("rect")
+            .attr("width", width)
+            .attr("height", height);
 
         // X axis
         svg.append('g')
             .attr('transform', `translate(0, ${height})`)
             .call(d3.axisBottom(x).ticks(9).tickFormat(d => formatAMPM(d)))
-            .selectAll('text').style('fill', 'white').style('font-size', width > 500 ? '14px' : '10px');
+            .selectAll('text')
+            .style('fill', 'white')
+            .style('font-size', width > 500 ? '14px' : '10px');
 
         // Y axis
         svg.append('g')
             .call(d3.axisLeft(y).ticks(5).tickFormat(() => ''))
-            .selectAll('text').style('fill', 'white');
+            .selectAll('text')
+            .style('fill', 'white');
 
         // Add curve
         svg.append('path')
             .datum(data)
+            .attr('clip-path', 'url(#clip)')
+            .attr('class', 'curve') // Add this class for tooltip events
             .attr('fill', 'none')
             .attr('stroke', '#68BFB6')
             .attr('stroke-width', 2)
@@ -162,6 +210,8 @@ const Overview = ({ BaseUrl }) => {
         // Add shadow beneath the curve
         svg.append('path')
             .datum(data)
+            .attr('clip-path', 'url(#clip)')
+            .attr('class', 'shadow') // Add this class for tooltip events
             .attr('fill', 'url(#shadowGradient)')
             .attr('stroke-width', 0)
             .attr('d', d3.area()
@@ -178,6 +228,29 @@ const Overview = ({ BaseUrl }) => {
                 .attr('class', 'tooltip')
                 .style('opacity', 0);
         }
+
+        // Add event listeners to the curve and shadow
+        svg.selectAll('.curve, .shadow')
+            .on('mousemove', function (event) {
+                const [mouseX] = d3.pointer(event); // Get mouse position relative to the graph
+                const bisect = d3.bisector(d => d.hour).left; // Use 'left' for nearest index
+                const xValue = x.invert(mouseX); // Convert mouseX to data's x domain value
+                const index = bisect(data, xValue);
+                const dLeft = data[index - 1];
+                const dRight = data[index];
+                const dClosest = !dRight || (xValue - dLeft.hour < dRight.hour - xValue) ? dLeft : dRight;
+
+                if (dClosest) {
+                    tooltipRef.current
+                        .style('opacity', 0.9)
+                        .html(`Hour: ${formatAMPM(dClosest.hour)}, Power: ${dClosest.power}`)
+                        .style('left', `${event.pageX + 10}px`)
+                        .style('top', `${event.pageY - 28}px`);
+                }
+            })
+            .on('mouseout', function () {
+                tooltipRef.current.style('opacity', 0);
+            });
     };
 
     function formatAMPM(hour) {
@@ -204,20 +277,20 @@ const Overview = ({ BaseUrl }) => {
                     {
                         data: values,
                         backgroundColor: [
-                            'rgba(118, 171, 174, 1)',
-                            'rgba(176, 197, 164, 1)',
-                            'rgba(145, 149, 246, 1)',
-                            'rgba(94, 136, 68, 1)',
-                            'rgba(242, 193, 141, 1)',
                             'rgba(243, 165, 49, 1)',
+                            'rgba(118, 171, 174, 1)',
+                            'rgba(94, 136, 68, 1)',
+                            'rgba(145, 149, 246, 1)',
+                            'rgba(176, 197, 164, 1)',
+                            'rgba(242, 193, 141, 1)'
                         ],
                         borderColor: [
-                            'rgba(118, 171, 174, 1)',
-                            'rgba(176, 197, 164, 1)',
-                            'rgba(145, 149, 246, 1)',
-                            'rgba(94, 136, 68, 1)',
-                            'rgba(242, 193, 141, 1)',
                             'rgba(243, 165, 49, 1)',
+                            'rgba(118, 171, 174, 1)',
+                            'rgba(94, 136, 68, 1)',
+                            'rgba(145, 149, 246, 1)',
+                            'rgba(176, 197, 164, 1)',
+                            'rgba(242, 193, 141, 1)'
                         ],
                         borderWidth: 1,
                         cutout: '70%',
@@ -238,11 +311,14 @@ const Overview = ({ BaseUrl }) => {
     };
 
     const images = [
-        { src: "assets/image 12.png", label: "WIND", hours: !loading && data.wind.operatinghours, generations: !loading && data.wind.powergenerated },
-        { src: "assets/image 13.png", label: "SOLAR", hours: !loading && data.solar.operatinghours, generations: !loading && data.solar.powergenerated },
-        { src: "assets/image 11.png", label: "BIOGAS", hours: !loading && data.biogas.operatinghours, generations: !loading && data.biogas.powergenerated },
-    //    { src: "assets/image 15.png", label: "GENSET", hours: !loading && data.genset.operatinghours, generations: !loading && data.genset.powergenerated },
+        { src: "assets/image 12.png", label: "WIND", hours: !loading && alldata.wind.operating_hours, generations: !loading && alldata.wind.avg_total_generation },
+        { src: "assets/image 13.png", label: "SOLAR", hours: !loading && alldata.solar.operating_hours, generations: !loading && alldata.solar.avg_total_generation },
+        { src: "assets/image 11.png", label: "BIOGAS", hours: !loading && alldata.biogas.operating_hours, generations: !loading && alldata.biogas.avg_total_generation },
+        { src: "assets/image 14.png", label: "MAINS", hours: !loading && alldata.mains.operating_hours, generations: !loading && alldata.mains.avg_total_generation },
+        { src: "assets/image 16.png", label: "ESS", hours: !loading && alldata.ess.operating_hours, generations: !loading && alldata.ess.avg_total_generation },
+        { src: "assets/image 15.png", label: "GENSET", hours: !loading && alldata.genset.operating_hours, generations: !loading && alldata.genset.avg_total_generation },
     ];
+
 
     const imagesPerGroup = 3;
     const totalGroups = Math.ceil(images.length / imagesPerGroup);
@@ -270,14 +346,27 @@ const Overview = ({ BaseUrl }) => {
     const startIndex = currentGroup * imagesPerGroup;
     const endIndex = startIndex + imagesPerGroup;
 
+    const colors = [
+        'rgba(243, 165, 49, 1)',
+        'rgba(118, 171, 174, 1)',
+        'rgba(94, 136, 68, 1)',
+        'rgba(145, 149, 246, 1)',
+        'rgba(176, 197, 164, 1)',
+        'rgba(242, 193, 141, 1)'];
+
+    const saving = !loading && 0.5 * alldata.solar.avg_total_generation - (17 * alldata.mains.avg_total_generation + 25 * alldata.genset.avg_total_generation)
+    const average_power_kwh = !loading && Math.floor((alldata.solar.avg_total_generation + alldata.mains.avg_total_generation + alldata.genset.avg_total_generation + alldata.wind.avg_total_generation + alldata.biogas.avg_total_generation + alldata.ess.avg_total_generation) / 6);
+    const average_power_kVA = !loading && Math.floor((alldata.solar.avg_kVA + alldata.mains.avg_kVA + alldata.genset.avg_kVA + alldata.wind.avg_kVA + alldata.biogas.avg_kVA + alldata.ess.avg_kVA) / 6);
+    const total_generation = !loading && alldata.solar.avg_total_generation + alldata.mains.avg_total_generation + alldata.wind.avg_total_generation + alldata.biogas.avg_total_generation;
+
     return (
         !loading && <div className="p-4">
             {/* First Row Section */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
                 {/* Left Section */}
-                <div className='overflow-hidden'>
+                <div>
                     <div
-                        className="grid grid-cols-1 sm:grid-cols-3 transition-transform duration-500 gap-3 xl:gap-5 h-[45vh] ease-in-out "
+                        className="grid grid-cols-1 sm:grid-cols-3 transition-transform duration-500 gap-3 xl:gap-5 h-[45vh]"
                     >
                         {images.slice(startIndex, endIndex).map((image, index) => (
                             <div key={index} className="relative flex-shrink-0 w-full">
@@ -325,7 +414,7 @@ const Overview = ({ BaseUrl }) => {
                     <p className="mt-2 text-white text-base xl:text-lg font-light mb-5">
                         Total Daily Generation:
                         <span className="bg-[#0821FF] text-sm xl:text-base rounded-full px-3 py-1 ml-2 inline-block font-extralight">
-                            {data.daily_generation} kWh
+                            {total_generation} kWh
                         </span>
                     </p>
                     <div className="mt-4">
@@ -343,40 +432,30 @@ const Overview = ({ BaseUrl }) => {
                 <div className="pie">
                     <div className="text-white flex mb-5 text-lg xl:text-xl">Energy Generation Comparison</div>
 
-                    <div className="bg-[#051e1c] rounded-lg mt-4 h-[89%]">
+                    <div className="bg-[#051e1c] rounded-lg h-[88%] mt-4">
                         <div className="flex justify-center items-center w-[250px] h-[250px] relative mx-auto">
-                            <canvas id="myChart" ref={doughnutChartRef} className="w-full h-full" width={200} height={200}></canvas>
+                            <canvas id="myChart" ref={doughnutChartRef} className="w-full h-full" width={180} height={180}></canvas>
                         </div>
 
-                        <div className="flex items-center p-5 justify-around mt-2">
-                            <div className="flex flex-col justify-around gap-5 mr-5">
-                                <div className="flex items-center">
-                                    <div className="w-3 h-3 bg-[rgba(243,165,49,1)] mr-2"></div>
-                                    <span className="text-[#CACCCC]">Solar (20%)</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <div className="w-3 h-3 bg-[rgba(118,171,174,1)] mr-2"></div>
-                                    <span className="text-[#CACCCC]">Wind (10%)</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <div className="w-3 h-3 bg-[rgba(94,136,68,1)] mr-2"></div>
-                                    <span className="text-[#CACCCC] whitespace-nowrap">Biogas (30%)</span>
-                                </div>
-                            </div>
-
-                            <div className="flex flex-col ml-2 gap-5 mr-5">
-                                <div className="flex items-center">
-                                    <div className="w-3 h-3 bg-[rgba(145,149,246,1)] mr-2"></div>
-                                    <span className="text-[#CACCCC]">ESS (10%)</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <div className="w-3 h-3 bg-[rgba(176,197,164,1)] mr-2"></div>
-                                    <span className="text-[#CACCCC]">Mains (15%)</span>
-                                </div>
-                                <div className="flex items-center">
-                                    <div className="w-3 h-3 bg-[rgba(242,193,141,1)] mr-2"></div>
-                                    <span className="text-[#CACCCC] whitespace-nowrap">Genset (5%)</span>
-                                </div>
+                        <div className="flex items-center p-4 justify-around">
+                            <div className="grid grid-cols-2 gap-x-10">
+                                {[...Array(Math.ceil(chartdata.labels.length / 3))].map((_, columnIndex) => (
+                                    <div key={columnIndex} className="flex flex-col gap-5">
+                                        {chartdata.labels
+                                            .slice(columnIndex * 3, columnIndex * 3 + 3) // Take 3 labels per column
+                                            .map((label, index) => (
+                                                <div key={index} className="flex items-center">
+                                                    <div
+                                                        className="w-3 h-3 mr-2"
+                                                        style={{ backgroundColor: colors[columnIndex * 3 + index] }}
+                                                    ></div>
+                                                    <span className="text-[#CACCCC] whitespace-nowrap">
+                                                        {`${label} (${chartdata.values[columnIndex * 3 + index]}%)`}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     </div>
@@ -396,12 +475,12 @@ const Overview = ({ BaseUrl }) => {
                             </thead>
                             <tbody className="table-body">
                                 {[
-                                    { src: './assets/Icons.png', name: 'Solar', hours: `${data.solar.operatinghours} hrs`, power: `${data.solar.powergenerated} kWh`, cost: data.solar.cost, costColor: '#57EB66' },
-                                    { src: './assets/Icons-z.png', name: 'Wind', hours: data.wind.operatinghours + ' hrs', power: data.wind.powergenerated + 'kWh', cost: data.wind.cost, costColor: '#57EB66' },
-                                    { src: './assets/Icons-y.png', name: 'Biogas', hours: data.biogas.operatinghours + ' hrs', power: data.biogas.powergenerated + ' kWh', cost: data.biogas.cost, costColor: '#57EB66' },
-                                    { src: './assets/Icons-x.png', name: 'ESS', hours: data.ess.operatinghours + ' hrs', power: data.ess.powergenerated + ' kWh', cost: data.ess.cost, costColor: '#57EB66' },
-                                    { src: './assets/Icons-w.png', name: 'Genset', hours: data.genset.operatinghours + ' hrs', power: data.genset.powergenerated + ' kWh', cost: data.genset.cost, costColor: '#EB5757' },
-                                    { src: './assets/Icons-u.png', name: 'Mains', hours: data.mains.operatinghours + ' hrs', power: data.mains.powergenerated + ' kWh', cost: data.mains.cost, costColor: '#EB5757' },
+                                    { src: './assets/Icons.png', name: 'Solar', hours: `${alldata.solar.operating_hours} hrs`, power: `${alldata.solar.avg_total_generation} kWh`, cost: 0.5 * alldata.solar.avg_total_generation, costColor: '#57EB66' },
+                                    { src: './assets/Icons-z.png', name: 'Wind', hours: alldata.wind.operating_hours + ' hrs', power: alldata.wind.avg_total_generation + 'kWh', cost: alldata.wind.avg_total_generation, costColor: '#57EB66' },
+                                    { src: './assets/Icons-y.png', name: 'Biogas', hours: alldata.biogas.operating_hours + ' hrs', power: alldata.biogas.avg_total_generation + ' kWh', cost: alldata.biogas.avg_total_generation, costColor: '#57EB66' },
+                                    { src: './assets/Icons-x.png', name: 'ESS', hours: alldata.ess.operating_hours + ' hrs', power: alldata.ess.avg_total_generation + ' kWh', cost: alldata.ess.avg_total_generation, costColor: '#57EB66' },
+                                    { src: './assets/Icons-w.png', name: 'Genset', hours: alldata.genset.operating_hours + ' hrs', power: alldata.genset.avg_total_generation + ' kWh', cost: 25 * alldata.genset.avg_total_generation, costColor: '#EB5757' },
+                                    { src: './assets/Icons-u.png', name: 'Mains', hours: alldata.mains.operating_hours + ' hrs', power: alldata.mains.avg_total_generation + ' kWh', cost: 17 * alldata.mains.avg_total_generation, costColor: '#EB5757' },
                                 ].map((item, index) => (
                                     <tr key={index}>
                                         <td className="bg-[#051E1C] text-[#CACCCC] text-base xl:text-lg flex items-center gap-2 p-4 rounded-tl-lg rounded-bl-lg">
@@ -424,14 +503,14 @@ const Overview = ({ BaseUrl }) => {
                     <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
                         <img src="assets/Vector 3.svg" className="p-1.5 w-[160px]" alt='image' />
                         <div className="flex flex-col items-start p-1.5 ml-2.5">
-                            <h6 id="avg-kw" className="text-white text-lg mb-1.5">{data.average_power_kw} kW</h6>
+                            <h6 id="avg-kw" className="text-white text-lg mb-1.5">{average_power_kwh} kW</h6>
                             <p className="text-[#7A7F7F] text-sm xl:text-base mb-1.5">Average Power (kWh)</p>
                         </div>
                     </div>
                     <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
                         <img src="assets/Frame 1000001841.svg" className="p-1.5 w-[160px]" alt='image' />
                         <div className="flex flex-col items-start p-1.5 ml-2.5">
-                            <h6 id="avg-kv" className="text-white text-lg mb-1.5">{data.average_power_kva} kW</h6>
+                            <h6 id="avg-kv" className="text-white text-lg mb-1.5">{average_power_kVA} kW</h6>
                             <p className="text-[#7A7F7F] text-sm xl:text-base mb-1.5 ">Average Power (kVA)</p>
                         </div>
                     </div>
@@ -444,7 +523,7 @@ const Overview = ({ BaseUrl }) => {
                         </div>
                         <div className="flex justify-between items-start flex-row mt-5 ">
                             <p className="text-[#7A7F7F] text-sm xl:text-base">Operated Yesterday</p>
-                            <p id="mains" className="text-[#CACCCC] text-base xl:text-lg ml-1 whitespace-nowrap">{data.mains_operated_yesterday} Hrs</p>
+                            <p id="mains" className="text-[#CACCCC] text-base xl:text-lg ml-1 whitespace-nowrap">{alldata.mains.hours_operated_yesterday} Hrs</p>
                         </div>
                     </div>
                     <div className="bg-[#051e1c] rounded-lg flex flex-col justify-between p-5">
@@ -454,7 +533,7 @@ const Overview = ({ BaseUrl }) => {
                         </div>
                         <div className="flex justify-between items-start flex-row mt-5">
                             <p className="text-[#7A7F7F] text-sm xl:text-base">Operated Yesterday</p>
-                            <p id="genset" className="text-[#CACCCC] text-base xl:text-lg ml-1 whitespace-nowrap">{data.genset_operated_yesterday} Hrs</p>
+                            <p id="genset" className="text-[#CACCCC] text-base xl:text-lg ml-1 whitespace-nowrap">{alldata.genset.hours_operated_yesterday} Hrs</p>
                         </div>
                     </div>
                 </div>
@@ -463,8 +542,8 @@ const Overview = ({ BaseUrl }) => {
                         <div>
                             <svg width="60" height="60" viewBox="0 0 38 38">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0F5B53" strokeWidth="5" strokeDasharray="100, 100" strokeLinecap="round" />
-                                <path id="myPathess" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#48D0D0" strokeWidth="5" strokeDasharray={`${data.ess_energy_stored}, 100`} strokeLinecap="round" />
-                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="ess">{data.ess_energy_stored}%</text>
+                                <path id="myPathess" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#48D0D0" strokeWidth="5" strokeDasharray={`${alldata.ess.soc}, 100`} strokeLinecap="round" />
+                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="ess">{alldata.ess.soc}%</text>
                             </svg>
                         </div>
                         <p className="text-sm xl:text-base text-[#CACCCC] ml-5">Energy Stored (ESS)</p>
@@ -473,8 +552,8 @@ const Overview = ({ BaseUrl }) => {
                         <div>
                             <svg width="60" height="60" viewBox="0 0 37 37">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0F5B53" strokeWidth="5" strokeDasharray="100, 100" strokeLinecap="round" />
-                                <path id="myPathsoc" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#D8D362" strokeWidth="5" strokeDasharray={`${data.soc_ess}, 100`} strokeLinecap="round" />
-                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="soc">{data.soc_ess}%</text>
+                                <path id="myPathsoc" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#D8D362" strokeWidth="5" strokeDasharray={`${alldata.ess.soc}, 100`} strokeLinecap="round" />
+                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="soc">{alldata.ess.soc}%</text>
                             </svg>
                         </div>
                         <p className="text-sm xl:text-base text-[#CACCCC] ml-5">SOC (ESS)</p>
@@ -487,11 +566,11 @@ const Overview = ({ BaseUrl }) => {
                             <p className="text-white ml-3">Savings</p>
                         </div>
                         <div className="mt-2 ml-2">
-                            <p id="savings" className="text-white my-1.5 text-lg xl:text-xl">INR {data.savings.savings}</p>
+                            <p id="savings" className="text-white my-1.5 text-lg xl:text-xl">INR {saving}</p>
                             <p className="text-[#959999] mt-1.5 text-xs xl:text-sm">(per month)</p>
                         </div>
                         <div className="mt-4 ml-2">
-                            <p id="savingt" className="text-white my-1.5 text-lg xl:text-xl">INR {data.savings.savingt}</p>
+                            <p id="savingt" className="text-white my-1.5 text-lg xl:text-xl">INR {saving}</p>
                             <p className="text-[#959999] my-1.5 text-xs xl:text-sm">(till date)</p>
                         </div>
                     </div>
@@ -506,16 +585,17 @@ const Overview = ({ BaseUrl }) => {
                                 <img src="assets/pink.svg" className="mr-2.5 align-middle inline-block" alt="Energy Icon" />
                                 Total Energy Generated
                             </div>
-                            <div className="text-white text-lg ml-2.5 m-0 md:text-base text-nowrap" id="total">{data.energy.total} (kWh)</div>
+                            <div className="text-white text-lg ml-2.5 m-0 md:text-base text-nowrap" id="total">{(Number(alldata.solar.avg_total_generation) || 0) +
+                                (Number(alldata.genset.avg_total_generation) || 0) + (Number(alldata.wind.avg_total_generation) || 0) + (Number(alldata.biogas.avg_total_generation) || 0)} (kWh)</div>
                         </div>
                         <div className="mb-0">
                             <div className="flex items-center justify-between ml-5 mb-3">
                                 <p className="text-sm xl:text-base text-[#AFB2B2] m-0">From Renewable Resources</p>
-                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="renew">{data.energy.renewable} (kWh)</p>
+                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="renew">{(Number(alldata.solar.avg_total_generation) || 0) + (Number(alldata.wind.avg_total_generation) || 0) + (Number(alldata.biogas.avg_total_generation) || 0)} (kWh)</p>
                             </div>
                             <div className="flex items-center justify-between ml-5 mb-0">
                                 <p className="text-sm xl:text-base text-[#AFB2B2] m-0">From Non-Renewable Resources</p>
-                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="non-renew">{data.energy.nonrenewable} (kWh)</p>
+                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="non-renew">{alldata.genset.avg_total_generation} (kWh)</p>
                             </div>
                         </div>
                     </div>
@@ -525,12 +605,12 @@ const Overview = ({ BaseUrl }) => {
                     <div className="bg-[#051e1c] rounded-lg p-5 flex items-center justify-between">
                         <div className="h-2.5 w-2.5 bg-[#FFAF12] rounded-full"></div>
                         <p className="text-[#7A7F7F] text-base xl:text-lg">Alerts</p>
-                        <div className="text-white text-xl xl:text-2xl" id="alerts">{data.alerts}</div>
+                        <div className="text-white text-xl xl:text-2xl" id="alerts">{alldata.alert.alert}</div>
                     </div>
                     <div className="bg-[#051e1c] rounded-lg p-5 flex items-center justify-between">
                         <div className="h-2.5 w-2.5 bg-red-600 rounded-full"></div>
                         <p className="text-[#7A7F7F] text-base xl:text-lg">Shutdowns</p>
-                        <div className="text-white text-xl xl:text-2xl" id="shutdown">{data.shutdown}</div>
+                        <div className="text-white text-xl xl:text-2xl" id="shutdown">{alldata.alert.shutdown}</div>
 
                     </div>
                 </div>
@@ -539,21 +619,21 @@ const Overview = ({ BaseUrl }) => {
                     <div className="flex-1 bg-[#051e1c] rounded-lg p-2">
                         <img src="assets/Icons (9).svg" className="p-3" alt="Current Icon" />
                         <div className="flex flex-col justify-center mt-5">
-                            <h6 id="av-current" className="text-white text-xl xl:text-2xl ml-2 mb-5 font-semibold">{data.av_current_amp}A</h6>
+                            <h6 id="av-current" className="text-white text-xl xl:text-2xl ml-2 mb-5 font-semibold">{current}A</h6>
                             <p className="text-sm xl:text-base text-[#7A7F7F] ml-2">Average Current (Amp.)</p>
                         </div>
                     </div>
                     <div className="flex-1 bg-[#051e1c] rounded-lg p-2">
                         <img src="assets/Icons (8).svg" className="p-3" alt="Voltage Icon" />
                         <div className="flex flex-col justify-center mt-5">
-                            <h6 id="averagel" className="text-white text-xl xl:text-2xl ml-2 mb-5 font-semibold">{data.average_voltagel}V</h6>
+                            <h6 id="averagel" className="text-white text-xl xl:text-2xl ml-2 mb-5 font-semibold">{voltageL_L}V</h6>
                             <p className="text-sm xl:text-base text-[#7A7F7F] ml-2">Avg. Voltage (L-L) (Volts)</p>
                         </div>
                     </div>
                     <div className="flex-1 bg-[#051e1c] rounded-lg p-2">
                         <img src="assets/Icons (7).svg" className="p-3" alt="Voltage Icon" />
                         <div className="flex flex-col justify-center mt-5">
-                            <h6 id="averagen" className="text-white text-xl xl:text-2xl ml-2 mb-5 font-semibold">{data.average_voltagen}V</h6>
+                            <h6 id="averagen" className="text-white text-xl xl:text-2xl ml-2 mb-5 font-semibold">{voltageL_N}V</h6>
                             <p className="text-sm xl:text-base text-[#7A7F7F] ml-2">Avg. Voltage (L-N) (Volts)</p>
                         </div>
                     </div>

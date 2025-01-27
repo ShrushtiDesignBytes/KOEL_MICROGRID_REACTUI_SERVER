@@ -2,6 +2,7 @@
 /* eslint-disable jsx-a11y/heading-has-content */
 /* eslint-disable jsx-a11y/img-redundant-alt */
 import React, { useEffect, useState } from 'react';
+import ProgressBar from '../Components/ProgressBar';
 
 const Genset = ({ BaseUrl }) => {
     const [data, setData] = useState({})
@@ -9,6 +10,7 @@ const Genset = ({ BaseUrl }) => {
     const [alertCount, setAlertCount] = useState(0);
     const [shutdownCount, setShutdownCount] = useState(0);
     const [loading, setLoading] = useState(true);
+    const [severity, setSeverity] = useState('')
 
     const fetchAlerts = async () => {
         try {
@@ -38,23 +40,30 @@ const Genset = ({ BaseUrl }) => {
         }
     };
 
-      useEffect(() => {
+    useEffect(() => {
         fetchAlerts();
-    
+
         const interval = setInterval(() => {
-          fetchAlerts(); 
+            fetchAlerts();
         }, 5000);
-    
-        return () => clearInterval(interval); 
-      }, []);
-    
+
+        return () => clearInterval(interval);
+    }, []);
+
     const displayCounts = (data) => {
         const gensetData = data.filter((i) => i.category === 'genset');
+
+        const healthIndex = gensetData[gensetData.length - 1];
+        setSeverity(healthIndex.severity.toLowerCase());
+        
         const alerts = gensetData.filter((i) => i.severity.toLowerCase() === 'alert');
         const shutdown = gensetData.filter((i) => i.severity.toLowerCase() === 'shutdown');
         setAlertCount(alerts.length);
         setShutdownCount(shutdown.length);
     };
+
+    const utilisation_factor = !loading && (data.operating_hours / 1000) * 100;
+
     return (
         !loading && <div className="p-4">
             {/* First Row Section */}
@@ -70,12 +79,13 @@ const Genset = ({ BaseUrl }) => {
                     </div>
                     <div className="absolute top-7 left-5 transform -translate-x-1/5 translate-y-1/5 p-1.5 bg-transparent text-white rounded z-10 flex items-center max-w-[calc(100%-40px)]">
                         <div className="mr-2.5">
-                            <img src="assets/Group.png" className="max-h-1/2 max-w-full" alt="Group Icon" />
+                            {data.voltagel.phase1 > 200 && data.voltagel.phase2 > 200 && data.voltagel.phase3 > 200 ? <img src="assets/Group.png" className="max-h-1/2 max-w-full" alt="Group Icon" />
+                                : <img src="assets/genset_off.png" className="max-h-14 max-w-full" alt="Group Icon" />}
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-rows-[25%_25%_45%] gap-4">
+                <div className="grid grid-rows-[25%_25%_43%] gap-4">
                     <div className="grid grid-cols-4 gap-2 mt-1">
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Operating Hours</p>
@@ -83,34 +93,66 @@ const Genset = ({ BaseUrl }) => {
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Generation</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.avg_total_generation} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Consumption</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-consumption">{data.total_consumption} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-consumption">{data.avg_total_generation} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Cost</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.total_saving}</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR 0</p>
                         </div>
                     </div>
 
-                    <div className="rounded-lg mr-0 p-4 bg-[#051e1c]">
+                    <div className="rounded-lg mr-0 p-2 bg-[#051e1c]">
                         <div className="ml-2">
                             <p className="text-white text-start text-base font-bold">Health Index</p>
                         </div>
 
-                        <div className="flex ml-2 justify-between mt-5">
-                            <div className="bg-[#F12D2D] h-[10px] w-[90%] mr-[10px] ml-0"></div>
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FD9C2B]"></div>
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FCDE2D] relative">
-                                <div className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center" style={{ left: `${data.healthIndex}%` }}>
-                                    <p className="text-white m-0 p-0 text-sm xl:text-base">{data.healthIndex}</p>
-                                    <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
-                                </div>
+                        <div className="flex ml-2 justify-between mt-7">
+                            {/* Red (Shutdown) */}
+                            <div className="bg-[#F12D2D] h-[10px] w-[90%] mr-[10px] ml-0 relative">
+                                {severity === 'shutdown' && (
+                                    <div
+                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
+                                        style={{ left: '50%' }}
+                                    >
+                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
+                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    </div>
+                                )}
                             </div>
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#199E2E]"></div>
+
+                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FD9C2B] relative"></div>
+
+                            {/* Yellow (Other) */}
+                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FCDE2D] relative">
+                                {severity === 'warning' && (
+                                    <div
+                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
+                                        style={{ left: '50%' }}
+                                    >
+                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
+                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Green */}
+                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#199E2E] relative">
+                                {severity !== 'shutdown' && severity !== 'warning' && (
+                                    <div
+                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
+                                        style={{ left: '50%' }}
+                                    >
+                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
+                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    </div>
+                                )}
+                            </div>
                         </div>
+
 
                         <div className="flex justify-between p-2 rounded-b-lg">
                             <div className="text-xs xl:text-sm whitespace-nowrap text-[#959999]">
@@ -129,7 +171,7 @@ const Genset = ({ BaseUrl }) => {
                                 <h5 className="text-[#CACCCC] text-lg flex font-semibold">Fuel</h5>
                                 <div className="mt-4 mb-3">
                                     <div className="w-44 h-12 flex items-center justify-center">
-                                        <div className="progress-4"></div>
+                                        <ProgressBar value={Number(data.tankCapacity)} />
                                     </div>
                                 </div>
                                 <p className="text-[#CACCCC] text-sm xl:text-base">Tank Capacity - {data.tankCapacity} litres</p>
@@ -147,18 +189,18 @@ const Genset = ({ BaseUrl }) => {
                                     <div className="text-[#959999] text-sm xl:text-base text-start">Critical Load</div>
                                     <div className="flex flex-row items-center gap-2 w-full">
                                         <div className="bg-[#00283a] rounded-lg h-2 flex-grow">
-                                            <div className="bg-[#48d0d0] rounded-lg h-full" style={{ width: `${data.critical_load}%` }}></div>
+                                            <div className="bg-[#48d0d0] rounded-lg h-full" style={{ width: `100%` }}></div>
                                         </div>
-                                        <h6 className="text-xs text-white mb-0" id="critical-load">{data.critical_load}%</h6>
+                                        <h6 className="text-xs text-white mb-0" id="critical-load">100%</h6>
                                     </div>
                                 </div>
                                 <div className="w-full flex flex-col gap-2 mt-5">
                                     <div className="text-[#959999] text-sm xl:text-base text-start">Non-Critical Load</div>
                                     <div className="flex flex-row items-center gap-2 w-full">
                                         <div className="bg-[#00283a] rounded-lg h-2 flex-grow">
-                                            <div className="bg-[#d8d362] rounded-lg h-full" style={{ width: `${data.non_critical_load}%` }}></div>
+                                            <div className="bg-[#d8d362] rounded-lg h-full" style={{ width: `100%` }}></div>
                                         </div>
-                                        <h6 className="text-xs text-white mb-0" id="critical-load">{data.non_critical_load}%</h6>
+                                        <h6 className="text-xs text-white mb-0" id="critical-load">100%</h6>
                                     </div>
                                 </div>
                             </div>
@@ -182,7 +224,7 @@ const Genset = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex gap-3 flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">
                                     <img src="assets/batteryV.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-generated-yesterday">{data.power_generated_yesterday}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-generated-yesterday">{data.power_generated_yesterday?.toFixed(2) || 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Power Generated Yesterday</p>
                             </div>
@@ -214,7 +256,7 @@ const Genset = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/utilisationF.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation-factor">{data.utilisation_factor}%</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation-factor">{utilisation_factor.toFixed(2)}%</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Utilisation Factor</p>
                             </div>
@@ -237,8 +279,8 @@ const Genset = ({ BaseUrl }) => {
                         </div>
                     </div>
 
-                    <div className="grid mt-2 rounded-md">
-                        <div className="grid-item-left-down mt-2 bg-[#030F0E] mb-7 rounded-md">
+                    <div className="grid mt-2 rounded-lg">
+                        <div className="grid-item-left-down mt-2 bg-[#030F0E] mb-7 rounded-lg">
                             <table className="table-style w-full border-collapse">
                                 <thead className="bg-[#051E1C] text-[#68BFB6]">
                                     <tr className="text-xs xl:text-sm font-medium">
@@ -304,7 +346,7 @@ const Genset = ({ BaseUrl }) => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-[#030F0E] rounded-lg pb-2.5 overflow-y-auto h-[230px] xl:h-[260px]"
+                            <div className="bg-[#030F0E] rounded-lg pb-2.5 overflow-y-auto h-[220px] xl:h-[260px]"
                                 style={{
                                     scrollbarWidth: 'thin',
                                     scrollbarColor: '#0A3D38 #0F544C',
@@ -320,7 +362,7 @@ const Genset = ({ BaseUrl }) => {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-[#030F0E] capitalize text-[#CACCCC]" id="alert-container">
-                                        {alertsData.filter(i => i.category === 'genset').map((item, index) => (
+                                        {alertsData.filter(i => i.category === 'genset').reverse().map((item, index) => (
                                             <tr key={index}>
                                                 <td className="px-3 xl:px-4 py-4">{item.fault_code}</td>
                                                 <td className="px-3 py-2">{item.description}</td>
@@ -341,7 +383,7 @@ const Genset = ({ BaseUrl }) => {
                             <table className="table-style w-full border-collapse">
                                 <thead className="thead-style bg-[#051E1C] text-[#68BFB6]">
                                     <tr className="text-xs xl:text-sm text-center font-medium">
-                                        <th className="whitespace-nowrap p-3 rounded-tl-lg font-medium">Power</th>
+                                        <th className="whitespace-nowrap p-4 rounded-tl-lg font-medium">Power</th>
                                         <th className="p-2 font-medium">Phase 1</th>
                                         <th className="p-2 font-medium">Phase 2</th>
                                         <th className="p-2 rounded-tr-lg font-medium">Phase 3</th>

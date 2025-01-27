@@ -52,16 +52,6 @@ const Alert = ({BaseUrl}) => {
       }, []);
 
 
-    useEffect(() => {
-        const link = window.location.href;
-        if (link.includes("alert")) {
-            const ele = document.getElementById("alert");
-            if (ele) {
-                ele.style.borderBottom = "2px solid #C37C5A";
-            }
-        }
-    }, []);
-
     return (
         <div className="p-2">
             <div className="m-2 mb-10">
@@ -87,7 +77,7 @@ const Alert = ({BaseUrl}) => {
                             </thead>
                             <tbody className="bg-[#030F0E] capitalize font-light" id="alert-container">
                                 {Array.isArray(notifications) ? (
-                                    notifications.map((item, index) => (
+                                    notifications.slice().reverse().map((item, index) => (
                                         <tr key={index}>
                                             <td className='px-4 xl:px-5 py-3 xl:py-4'>{item.fault_code}</td>
                                             <td className='px-4 py-3'>{item.category}</td>

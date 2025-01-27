@@ -12,6 +12,25 @@ const Biogas = ({ BaseUrl }) => {
     const [loading, setLoading] = useState(true);
     const [imageLoaded, setImageLoaded] = useState(false);
     const containerRef = useRef(null)
+    const [chartData, setChartData] = useState([]);
+
+    useEffect(() => {
+        const fetchPowerData = async () => {
+            try {
+                const response = await fetch(`${BaseUrl}/biogas/chart`);
+                const result = await response.json();
+                console.log(result)
+                setChartData(result);
+            } catch (error) {
+                console.error('Error fetching power data:', error);
+            }
+        };
+
+        fetchPowerData();
+        const interval = setInterval(fetchPowerData, 15 * 60 * 1000); // 15 minutes
+
+        return () => clearInterval(interval);
+    }, []);
 
     const fetchAlerts = async () => {
         try {
@@ -54,17 +73,10 @@ const Biogas = ({ BaseUrl }) => {
 
     useEffect(() => {
         if (imageLoaded && !loading) {
-            fetch('./dummy_data.json')
-                .then((response) => response.json())
-                .then((data) => {
-                    const filteredData = data.graph.filter((d) => d.hour >= 8 && d.hour <= 16);
-                    displayDataCurveGraph(filteredData);
-                })
-                .catch((error) => {
-                    console.error('Error fetching dummy data:', error);
-                });
+            displayDataCurveGraph(chartData);
         }
-    }, [imageLoaded, loading]);
+    }, [imageLoaded, loading, chartData]);
+
 
     const handleImageLoad = () => {
         setImageLoaded(true);
@@ -84,15 +96,15 @@ const Biogas = ({ BaseUrl }) => {
     };
 
     const displayDataCurveGraph = (data) => {
-        const margin = { top: 10, right: 10, bottom: 60, left: 20 };
+        const margin = { top: 10, right: 10, bottom: 70, left: 20 };
+
+        d3.select(containerRef.current).selectAll('svg').remove();
+        const container = containerRef.current;
+        const width = container.offsetWidth - margin.left - margin.right - 60;
+        const height = container.offsetHeight - margin.top - margin.bottom - 70;
 
         function updateDimensions() {
-
             if (!containerRef.current) return;
-
-            const container = containerRef.current;
-            const width = container.offsetWidth - margin.left - margin.right - 60;
-            const height = container.offsetHeight - margin.top - margin.bottom - 70;
 
             svg.attr('width', width + margin.left + margin.right).attr('height', height + margin.top + margin.bottom);
 
@@ -103,34 +115,75 @@ const Biogas = ({ BaseUrl }) => {
                 .attr('transform', `translate(0, ${height})`)
                 .call(d3.axisBottom(x).ticks(9).tickSizeOuter(0).tickFormat((d) => formatAMPM(d)))
                 .selectAll('text')
-                .style('fill', 'white').style('font-size', width > 500 ? '14px' : '10px');;
+                .style('fill', 'white').style('font-size', width > 500 ? '14px' : '10px');
 
             svg.select('.y-axis')
                 .call(d3.axisLeft(y).ticks(5).tickSize(4).tickFormat((d) => ''))
                 .selectAll('text')
                 .style('fill', 'white');
 
-            svg.select('.curve').attr('d', d3.line().x((d) => x(d.hour)).y((d) => y(+d.power)).curve(d3.curveBasis));
+            // Define the curve
+            svg.select('.curve')
+                .attr('d', d3.line().x((d) => x(d.hour)).y((d) => y(+d.power)).curve(d3.curveBasis));
 
-            svg.select('.shadow').attr('d', d3.area().x((d) => x(d.hour)).y0(height).y1((d) => y(+d.power)).curve(d3.curveBasis));
+            // Define the shadow (area beneath the curve)
+            svg.select('.shadow')
+                .attr('d', d3.area()
+                    .x((d) => x(d.hour))
+                    .y0(height)  // Start from the bottom (X-axis line)
+                    .y1((d) => y(+d.power))
+                    .curve(d3.curveBasis)
+                );
         }
 
         const svg = d3.select('#my_dataviz').append('svg').attr('width', '100%').attr('height', '100%').append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
-        const x = d3.scaleLinear().domain([8, 16]).range([0, 0]);
+        const now = new Date();
+        const currentHour = now.getHours();
+        const pastHour = currentHour - 8 < 0 ? 24 + (currentHour - 8) : currentHour - 8;
+
+        const x = d3.scaleLinear().domain([pastHour, currentHour]).range([0, 0]);
+        // const x = d3.scaleLinear().domain([8, 16]).range([0, width]);
         const y = d3.scaleLinear().domain([0, d3.max(data, (d) => +d.power)]).nice().range([0, 0]);
 
         svg.append('g').attr('class', 'x-axis');
         svg.append('g').attr('class', 'y-axis');
 
-        svg.append('path').datum(data).attr('class', 'curve').attr('fill', 'none').attr('stroke', '#68BFB6').attr('stroke-width', 2);
 
-        const gradient = svg.append('defs').append('linearGradient').attr('id', 'shadowGradient').attr('x1', '0%').attr('y1', '0%').attr('x2', '0%').attr('y2', '100%');
+        // Add clipPath to hide the portion of the curve that goes below the axis
+        svg.append('defs').append('clipPath')
+            .attr('id', 'clip')
+            .append('rect')
+            .attr('width', '100%')
+            .attr('height', height)
+            .attr('x', 0)
+            .attr('y', 0);
+
+        // Apply the clipPath to the curve and shadow
+        svg.append('path')
+            .datum(data)
+            .attr('class', 'curve')
+            .attr('fill', 'none')
+            .attr('stroke', '#68BFB6')
+            .attr('stroke-width', 2)
+            .attr('clip-path', 'url(#clip)');  // Clip path applied here
+
+        const gradient = svg.append('defs').append('linearGradient')
+            .attr('id', 'shadowGradient')
+            .attr('x1', '0%')
+            .attr('y1', '0%')
+            .attr('x2', '0%')
+            .attr('y2', '100%');
 
         gradient.append('stop').attr('offset', '0%').attr('stop-color', '#0A3D38').attr('stop-opacity', 0.9);
         gradient.append('stop').attr('offset', '80%').attr('stop-color', '#0A3D38').attr('stop-opacity', 0);
 
-        svg.append('path').datum(data).attr('class', 'shadow').attr('fill', 'url(#shadowGradient)').attr('stroke-width', 0);
+        svg.append('path')
+            .datum(data)
+            .attr('class', 'shadow')
+            .attr('fill', 'url(#shadowGradient)')
+            .attr('stroke-width', 0)
+            .attr('clip-path', 'url(#clip)');  // Clip path applied here
 
         const tooltip = d3.select('body').append('div').attr('class', 'tooltip').style('opacity', 0);
 
@@ -161,11 +214,14 @@ const Biogas = ({ BaseUrl }) => {
         const formattedHour = hour % 12 || 12;
         return `${formattedHour} ${ampm}`;
     };
+
+    const utilisation_factor = !loading && (data.operating_hours / 1000) * 100;
+
     return (
         !loading && <div className="p-4">
             {/* First Row Section */}
             <div className="grid grid-cols-2 gap-5">
-                <div className="relative">
+                <div className="relative block">
                     <img id="overview-image" src="assets/image.svg" width="100%" alt="overview" onLoad={handleImageLoad}
                         onError={handleImageError} className="block w-full h-full object-cover rounded-md" />
 
@@ -178,7 +234,11 @@ const Biogas = ({ BaseUrl }) => {
                     </div>
 
                     <div className="absolute bottom-7 left-[35%] flex items-center max-w-[calc(100%-40px)] text-white">
-                        <img src="assets/Icons-Status.png" alt="status" className="h-10 max-h-[50%] max-w-full mr-3" />
+                        <div className="mr-2">
+                            {data.breaker_status === 'On' ? <img src="assets/Icons-Status.png" className="h-10 max-h-1/2 max-w-full" alt='image' />
+                                : <img src="assets/Icons-Status-Red.png" className="h-6 max-h-1/2 max-w-full mr-2" alt='image' />}
+
+                        </div>
                         <div>
                             <p className="text-xs xl:text-sm text-[#959999] mb-1">Status</p>
                             <p className="text-sm xl:text-base">Active</p>
@@ -194,22 +254,22 @@ const Biogas = ({ BaseUrl }) => {
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Generation</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.avg_total_generation} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Utilisation</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-utilisation">{data.total_utilisation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-utilisation">{data.avg_total_generation} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Savings</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.total_saving}</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.avg_total_generation}</p>
                         </div>
                     </div>
 
                     <div id="grid-it-rl" className="rounded-lg mt-2 p-4" ref={containerRef}>
                         <div className="flex justify-between mb-4">
                             <p className="text-sm xl:text-base text-white">Energy Generated Today</p>
-                            <p className="text-xs xl:text-sm text-white">Total Daily Generation: {data.daily_generation} kWh</p>
+                            <p className="text-xs xl:text-sm text-white">Total Daily Generation: {data.avg_total_generation} kWh</p>
                         </div>
                         <p className="text-xs xl:text-sm text-[#AFB2B2] mt-2 text-start">Updated 15 min ago</p>
                         <div className="mt-4 h-[210px] xl:h-[300px]" id="my_dataviz"></div>
@@ -225,14 +285,14 @@ const Biogas = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 gap-3 flex flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">
                                     <img src="assets/Icons.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-generated">{data.power_generated}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-generated">{data.power_generated_yesterday?.toFixed(2) || 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Power Generated Yesterday</p>
                             </div>
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 gap-3 flex flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">
                                     <img src="assets/Icons (5).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="hours">{data.hours_operated}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="hours">{data.hours_operated_yesterday}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Hours operated Yesterday</p>
                             </div>
@@ -241,7 +301,7 @@ const Biogas = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/Icons (2).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation">{data.utilisation}%</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation">{utilisation_factor.toFixed(2)}%</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Utilisation Factor</p>
                             </div>
@@ -284,8 +344,8 @@ const Biogas = ({ BaseUrl }) => {
                         </div>
                     </div>
 
-                    <div className="grid mt-2 rounded-md">
-                        <div className="grid-item-left-down mt-2 bg-[#030F0E] mb-7 rounded-md">
+                    <div className="grid mt-2 rounded-lg">
+                        <div className="grid-item-left-down mt-2 bg-[#030F0E] mb-7 rounded-lg">
                             <table className="table-style w-full border-collapse">
                                 <thead className="bg-[#051E1C] text-[#68BFB6]">
                                     <tr className="text-xs xl:text-sm font-medium">
@@ -325,7 +385,7 @@ const Biogas = ({ BaseUrl }) => {
                         <div className="grid-item-left-down mt-2">
                             <div className="p-2">
                                 <div className="text-white text-[20px] flex justify-between items-start">
-                                    <div className="mb-4 text-base xl:text-lg font-bold">
+                                    <div className="mb-3 text-base xl:text-lg font-bold">
                                         Notifications
                                     </div>
                                     <div className="flex">
@@ -351,7 +411,7 @@ const Biogas = ({ BaseUrl }) => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-[#030F0E] rounded-lg pb-2.5 overflow-y-auto h-[230px] xl:h-[260px]"
+                            <div className="bg-[#030F0E] rounded-lg pb-2.5 overflow-y-auto h-[240px] xl:h-[260px]"
                                 style={{
                                     scrollbarWidth: 'thin',
                                     scrollbarColor: '#0A3D38 #0F544C',
@@ -367,7 +427,7 @@ const Biogas = ({ BaseUrl }) => {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-[#030F0E] capitalize text-[#CACCCC]" id="alert-container">
-                                        {alertsData.filter(i => i.category === 'biogas').map((item, index) => (
+                                        {alertsData.filter(i => i.category === 'biogas').reverse().map((item, index) => (
                                             <tr key={index}>
                                                 <td className="px-3 xl:px-4 py-4">{item.fault_code}</td>
                                                 <td className="px-3 py-2">{item.description}</td>

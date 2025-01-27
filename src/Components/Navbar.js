@@ -4,6 +4,12 @@ import { IoNotificationsOutline } from "react-icons/io5";
 import { CiUser } from "react-icons/ci";
 
 const Navbar = () => {
+
+    const handleLogOut = () =>{
+        // localStorage.removeItem('token')
+        // window.location.href = "http://13.126.205.156:8082/"
+    }
+    
     return (
         <div className="flex justify-between items-center w-full p-3 bg-gradient-to-r from-custom-green to-custom-dark">
             <div className="flex rounded overflow-hidden p-3 bg-[#030F0E] w-full max-w-md ml-5">
@@ -30,7 +36,7 @@ const Navbar = () => {
                         <h1 className="text-white text-base whitespace-nowrap font-bold">Account Settings</h1>
                         <div className="inline-flex items-center mt-2">
                             <img src="./assets/Logout-Icon.png" alt="" width="15" height="15" />
-                            <button className="ml-2 text-white font-medium text-base">Logout</button>
+                            <button className="ml-2 text-white font-medium text-base" onClick={handleLogOut}>Logout</button>
                         </div>
                     </div>
                 </div>

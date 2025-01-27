@@ -8,7 +8,8 @@ const Ess = ({ BaseUrl }) => {
     const [alertsData, setAlertsData] = useState([]);
     const [alertCount, setAlertCount] = useState(0);
     const [shutdownCount, setShutdownCount] = useState(0);
-    const [loading, setLoading] = useState(true); 
+    const [loading, setLoading] = useState(true);
+    const [severity, setSeverity] = useState('')
 
     const fetchAlerts = async () => {
         try {
@@ -35,24 +36,31 @@ const Ess = ({ BaseUrl }) => {
 
     };
 
-      useEffect(() => {
+    useEffect(() => {
         fetchAlerts();
-    
+
         const interval = setInterval(() => {
-          fetchAlerts(); 
+            fetchAlerts();
         }, 5000);
-    
-        return () => clearInterval(interval); 
-      }, []);
+
+        return () => clearInterval(interval);
+    }, []);
+
 
     const displayCounts = (data) => {
         const essData = data.filter((i) => i.category === 'ess');
+
+        const healthIndex = essData[essData.length - 1];
+        setSeverity(healthIndex.severity.toLowerCase());
+
         const alerts = essData.filter((i) => i.severity.toLowerCase() === 'alert');
         const shutdown = essData.filter((i) => i.severity.toLowerCase() === 'shutdown');
         setAlertCount(alerts.length);
         setShutdownCount(shutdown.length);
     };
-    
+
+    const utilisation_factor = !loading && (data.operating_hours / 1000) * 100;
+
     return (
         !loading && <div className="p-4">
             {/* First Row Section */}
@@ -69,7 +77,11 @@ const Ess = ({ BaseUrl }) => {
                     </div>
 
                     <div className="absolute bottom-7 left-[35%] flex items-center max-w-[calc(100%-40px)] text-white">
-                        <img src="assets/Icons-Status.png" alt="status" className="h-10 max-h-[50%] max-w-full mr-3" />
+                        <div className="mr-2">
+                            {data.breaker_status === 'On' ? <img src="assets/Icons-Status.png" className="h-10 max-h-1/2 max-w-full" alt='image' />
+                                : <img src="assets/Icons-Status-Red.png" className="h-6 max-h-1/2 max-w-full mr-2" alt='image' />}
+
+                        </div>
                         <div>
                             <p className="text-xs xl:text-sm text-[#959999] mb-1">Status</p>
                             <p className="text-sm xl:text-base">Active</p>
@@ -85,15 +97,15 @@ const Ess = ({ BaseUrl }) => {
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Power Stored</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="power-stored">{data.total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="power-stored">{data.avg_total_generation} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Power Consumed</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-consumption">{data.total_consumption} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-consumption">{data.avg_total_generation} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Savings</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.total_saving}</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.avg_total_generation}</p>
                         </div>
                     </div>
 
@@ -102,16 +114,47 @@ const Ess = ({ BaseUrl }) => {
                             <p className="text-white text-start text-base xl:text-lg font-bold">Health Index</p>
                         </div>
 
-                        <div className="flex ml-2 justify-between mt-5">
-                            <div className="bg-[#F12D2D] h-[10px] w-[90%] mr-[10px] ml-0"></div>
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FD9C2B]"></div>
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FCDE2D] relative">
-                                <div className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center" style={{ left: `${data.healthIndex}%` }}>
-                                    <p className="text-white m-0 p-0 text-sm xl:text-base">{data.healthIndex}</p>
-                                    <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
-                                </div>
+                        <div className="flex ml-2 justify-between mt-7">
+                            {/* Red (Shutdown) */}
+                            <div className="bg-[#F12D2D] h-[10px] w-[90%] mr-[10px] ml-0 relative">
+                                {severity === 'shutdown' && (
+                                    <div
+                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
+                                        style={{ left: '50%' }}
+                                    >
+                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
+                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    </div>
+                                )}
                             </div>
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#199E2E]"></div>
+
+                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FD9C2B] relative"></div>
+
+                            {/* Yellow (Other) */}
+                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FCDE2D] relative">
+                                {severity === 'warning' && (
+                                    <div
+                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
+                                        style={{ left: '50%' }}
+                                    >
+                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
+                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Green */}
+                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#199E2E] relative">
+                                {severity !== 'shutdown' && severity !== 'warning' && (
+                                    <div
+                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
+                                        style={{ left: '50%' }}
+                                    >
+                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
+                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-between p-2 rounded-b-lg">
@@ -130,43 +173,43 @@ const Ess = ({ BaseUrl }) => {
                                 <h5 className="text-[#CACCCC] text-lg xl:text-xl flex">SOC</h5>
                                 <h6 className="text-[#CF967B] text-xl xl:text-2xl">{data.soc}%</h6>
                             </div>
-                            <div className="gauge-wrapper">
-                                <div className="label-text label-0">0</div>
-                                <div className="label-text label-25">25</div>
-                                <div className="label-text label-50">50</div>
-                                <div className="label-text label-75">75</div>
-                                <div className="label-text label-100">100</div>
+                            <div className="inline-block w-auto mx-auto py-[15px] px-[15px] relative">
+                                <div className="absolute text-[0.8em] text-white origin-center top-[80%] left-0 transform -translate-x-1/2 -translate-y-1/2">0</div>
+                                <div className="absolute text-[0.8em] text-white transform-origin-center top-[30%] transform -translate-x-1/2 -translate-y-1/2">25</div>
+                                <div className="absolute text-[0.8em] text-white transform-origin-center top-[4%] left-1/2 transform -translate-x-1/2 -translate-y-1/2">50</div>
+                                <div className="absolute text-[0.8em] text-white transform-origin-center top-[30%] right-0 transform -translate-x-1/2 -translate-y-1/2">75</div>
+                                <div className="absolute text-[0.8em] text-white transform-origin-center top-[80%] right-0 transform translate-x-1/2 -translate-y-1/2">100</div>
 
-                                <div className={`gauge four ${data.soc >= 90
-                                        ? 'rischio4'
-                                        :data.soc >= 80
+                                <div className={`bg-[#e7e7e7] shadow-[0_-3px_6px_2px_rgba(0,_0,_0,_0.5)] w-[10vw] h-[6vw] rounded-t-full relative overflow-hidden four ${data.soc >= 90
+                                    ? 'rischio4'
+                                    : data.soc >= 80
                                         ? 'rischio44'
                                         : data.soc >= 75
                                             ? 'rischio3'
-                                        : data.soc > 60
-                                            ? 'rischio33'
-                                        : data.soc >= 50
-                                            ? 'rischio2'
-                                            : data.soc > 30
-                                                ? 'rischio22'
-                                                : data.soc >= 25
-                                                ? 'rischio1'
-                                                : 'rischio11'
+                                            : data.soc > 60
+                                                ? 'rischio33'
+                                                : data.soc >= 50
+                                                    ? 'rischio2'
+                                                    : data.soc > 30
+                                                        ? 'rischio22'
+                                                        : data.soc >= 25
+                                                            ? 'rischio1'
+                                                            : 'rischio11'
                                     }`}>
-                                    <div className="slice-colors">
-                                        <div className="st slice-item"></div>
-                                        <div className="st slice-item"></div>
-                                        <div className="st slice-item"></div>
-                                        <div className="st slice-item"></div>
-                                        <div className="color-label high">High</div>
-                                        <div className="color-label medium">Medium</div>
-                                        <div className="color-label low">Low</div>
+                                    <div className="slice-colors h-full relative">
+                                        <div className="st slice-item absolute bottom-0 w-0 h-0 border-[2.5vw] border-transparent"></div>
+                                        <div className="st slice-item absolute bottom-0 w-0 h-0 border-[2.5vw] border-transparent"></div>
+                                        <div className="st slice-item absolute bottom-0 w-0 h-0 border-[2.5vw] border-transparent"></div>
+                                        <div className="st slice-item absolute bottom-0 w-0 h-0 border-[2.5vw] border-transparent"></div>
+                                        <div className="absolute text-[1.3vh] text-center z-10 top-[70%] right-[12%] transform translate-x-[50%] translate-y-[-50%] font-semibold text-black">High</div>
+                                        <div className="absolute text-[1.3vh] text-center z-10 bottom-[75%] left-[49%] transform translate-x-[-50%] translate-y-[50%] font-semibold text-black">Medium</div>
+                                        <div className="absolute text-[1.3vh] text-center z-10 top-[70%] left-[12%] transform translate-x-[-50%] translate-y-[-50%] font-semibold text-black">Low</div>
                                     </div>
-
-                                    <div className="gauge-center">
+                                    
+                                    <div className="text-sm text-opacity-60 text-center mt-4 absolute w-[60%] h-[60%] bg-white rounded-t-[100px] shadow-[0_-8px_10px_-7px_rgba(0,0,0,0.38)] right-[21%] bottom-0 z-[10]">
                                         <div className="needle"></div>
-                                        <div className="label"></div>
-                                        <div className="number"></div>
+                                        <div className="text-sm text-opacity-60 text-center mt-4 mb-1"></div>
+                                        <div className="text-lg text-center text-opacity-60 mt-4 mb-1"></div>
                                     </div>
                                 </div>
                             </div>
@@ -187,18 +230,20 @@ const Ess = ({ BaseUrl }) => {
                                     <div className="text-[#959999] text-sm xl:text-base text-start">Critical Load</div>
                                     <div className="flex flex-row items-center gap-2 w-full">
                                         <div className="bg-[#00283a] rounded-lg h-2 flex-grow">
-                                            <div className="bg-[#48d0d0] rounded-lg h-full" style={{ width: `${data.critical_load}%` }}></div>
+                                            <div className="bg-[#48d0d0] rounded-lg h-full" style={{ width: `100%` }}></div>
+                                            {/* <div className="bg-[#48d0d0] rounded-lg h-full" style={{ width: `${data.critical_load}%` }}></div> */}
                                         </div>
-                                        <h6 className="text-xs text-white mb-0" id="critical-load">{data.critical_load}%</h6>
+                                        <h6 className="text-xs text-white mb-0" id="critical-load">100%</h6>
                                     </div>
                                 </div>
                                 <div className="w-full flex flex-col gap-2 mt-5">
                                     <div className="text-[#959999] text-sm xl:text-base text-start">Non-Critical Load</div>
                                     <div className="flex flex-row items-center gap-2 w-full">
                                         <div className="bg-[#00283a] rounded-lg h-2 flex-grow">
-                                            <div className="bg-[#d8d362] rounded-lg h-full" style={{ width: `${data.non_critical_load}%` }}></div>
+                                            <div className="bg-[#d8d362] rounded-lg h-full" style={{ width: `100%` }}></div>
+                                            {/* <div className="bg-[#d8d362] rounded-lg h-full" style={{ width: `${data.non_critical_load}%` }}></div> */}
                                         </div>
-                                        <h6 className="text-xs text-white mb-0" id="critical-load">{data.non_critical_load}%</h6>
+                                        <h6 className="text-xs text-white mb-0" id="critical-load">100%</h6>
                                     </div>
                                 </div>
                             </div>
@@ -247,14 +292,14 @@ const Ess = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/utilisationF.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation-factor">{data.utilisation_factor}%</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation-factor">{utilisation_factor.toFixed(2)}%</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Utilisation Factor</p>
                             </div>
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/power used1.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-used-yesterday">{data.power_used_yesterday}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-used-yesterday">{data.power_generated_yesterday?.toFixed(2) || 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Power Used Yesterday (kWh)</p>
                             </div>
@@ -278,8 +323,8 @@ const Ess = ({ BaseUrl }) => {
                         </div>
                     </div>
 
-                    <div className="grid mt-2 rounded-md">
-                        <div className="grid-item-left-down mt-2 bg-[#030F0E] mb-7 rounded-md">
+                    <div className="grid mt-2 rounded-lg">
+                        <div className="grid-item-left-down mt-2 bg-[#030F0E] mb-7 rounded-lg">
                             <table className="table-style w-full border-collapse">
                                 <thead className="bg-[#051E1C] text-[#68BFB6]">
                                     <tr className="text-xs xl:text-sm font-medium">
@@ -319,7 +364,7 @@ const Ess = ({ BaseUrl }) => {
                         <div className="grid-item-left-down mt-2">
                             <div className="p-2">
                                 <div className="text-white text-[20px] flex justify-between items-start">
-                                    <div className="mb-4 text-base xl:text-lg font-bold">
+                                    <div className="mb-3 text-base xl:text-lg font-bold">
                                         Notifications
                                     </div>
                                     <div className="flex">
@@ -344,7 +389,7 @@ const Ess = ({ BaseUrl }) => {
                                     </div>
                                 </div>
                             </div>
-                            <div className="bg-[#030F0E] rounded-lg pb-2.5 overflow-y-auto h-[230px] xl:h-[260px]"
+                            <div className="bg-[#030F0E] rounded-lg pb-2.5 overflow-y-auto h-[240px] xl:h-[260px]"
                                 style={{
                                     scrollbarWidth: 'thin',
                                     scrollbarColor: '#0A3D38 #0F544C',
@@ -360,7 +405,7 @@ const Ess = ({ BaseUrl }) => {
                                         </tr>
                                     </thead>
                                     <tbody className="bg-[#030F0E] capitalize text-[#CACCCC]" id="alert-container">
-                                        {alertsData.filter(i => i.category === 'ess').map((item, index) => (
+                                        {alertsData.filter(i => i.category === 'ess').reverse().map((item, index) => (
                                             <tr key={index}>
                                                 <td className="px-3 xl:px-4 py-4">{item.fault_code}</td>
                                                 <td className="px-3 py-2">{item.description}</td>
