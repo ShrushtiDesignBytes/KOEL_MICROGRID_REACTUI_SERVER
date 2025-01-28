@@ -191,55 +191,10 @@ body {
   z-index: 9;
 }
 
-.four.rischio1 .needle {
-  animation: fourspeed1 2s 1 both;
-  animation-delay: 1s;
+.four.rischio .needle {
   display: block;
-}
-
-.four.rischio11 .needle {
-  animation: fourspeed11 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-.four.rischio2 .needle {
-  animation: fourspeed2 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-.four.rischio22 .needle {
-  animation: fourspeed22 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-.four.rischio3 .needle {
-  animation: fourspeed3 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-.four.rischio33 .needle {
-  animation: fourspeed33 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-.four.rischio4 .needle {
-  animation: fourspeed4 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-.four.rischio44 .needle {
-  animation: fourspeed44 2s 1 both;
-  animation-delay: 1s;
-  display: block;
-}
-
-
+  transition: transform 1s ease; /* Smooth transition */
+} 
 
 .four .slice-colors .st.slice-item:nth-child(2) {
   border-top: 3.6vw #FD9C2B solid;
@@ -264,103 +219,6 @@ body {
   color: #fff;
   text-align: center;
   z-index: 10;
-}
-
-
-@keyframes fourspeed1 {
-  0% {
-    transform: rotate(0deg);
-    /* Start */
-  }
-
-  100% {
-    transform: rotate(45deg);
-    /* End of rischio1 (0-25) */
-  }
-}
-
-@keyframes fourspeed11 {
-  0% {
-    transform: rotate(0deg);
-    /* Start */
-  }
-
-  100% {
-    transform: rotate(30deg);
-    /* End of rischio1 (0-25) */
-  }
-}
-
-@keyframes fourspeed2 {
-  0% {
-    transform: rotate(0deg);
-    /* Start at the end of rischio1 */
-  }
-
-  100% {
-    transform: rotate(90deg);
-    /* End of rischio2 (26-50) */
-  }
-}
-
-@keyframes fourspeed22 {
-  0% {
-    transform: rotate(0deg);
-    /* Start at the end of rischio1 */
-  }
-
-  100% {
-    transform: rotate(75deg);
-    /* End of rischio2 (26-50) */
-  }
-}
-
-@keyframes fourspeed3 {
-  0% {
-    transform: rotate(0deg);
-    /* Start at the end of rischio2 */
-  }
-
-  100% {
-    transform: rotate(135deg);
-    /* End of rischio3 (51-75) */
-  }
-}
-
-@keyframes fourspeed33 {
-  0% {
-    transform: rotate(0deg);
-    /* Start at the end of rischio2 */
-  }
-
-  100% {
-    transform: rotate(115deg);
-    /* End of rischio3 (51-75) */
-  }
-}
-
-@keyframes fourspeed44 {
-  0% {
-    transform: rotate(0deg);
-    /* Start at the end of rischio3 */
-  }
-
-  100% {
-    transform: rotate(160deg);
-    /* End of rischio4 (76-100) */
-  }
-}
-
-@keyframes fourspeed4 {
-  0% {
-    transform: rotate(0deg);
-    /* Start at the end of rischio3 */
-  }
-
-  100% {
-    transform: rotate(180deg);
-    /* End of rischio4 (76-100) */
-  }
 }
 
 .progress-4 {

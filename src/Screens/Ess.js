@@ -45,6 +45,24 @@ const Ess = ({ BaseUrl }) => {
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        updateNeedleRotation(data.soc);
+    }, [data]);
+
+
+    function updateNeedleRotation(value) {
+
+        value = Math.min(Math.max(value, 0), 100);
+
+        const rotation = (value / 100) * 180; 
+
+        const needle = document.querySelector('.four .needle');
+        if (needle) {
+            needle.style.transform = `rotate(${rotation}deg)`;
+        }
+    }
+
+
 
     const displayCounts = (data) => {
         const essData = data.filter((i) => i.category === 'ess');
@@ -179,22 +197,7 @@ const Ess = ({ BaseUrl }) => {
                                 <div className="absolute text-[0.8em] text-white transform-origin-center top-[30%] right-0 transform -translate-x-1/2 -translate-y-1/2">75</div>
                                 <div className="absolute text-[0.8em] text-white transform-origin-center top-[80%] right-0 transform translate-x-1/2 -translate-y-1/2">100</div>
 
-                                <div className={`bg-[#e7e7e7] shadow-[0_-3px_6px_2px_rgba(0,_0,_0,_0.5)] w-[10vw] h-[6vw] rounded-t-full relative overflow-hidden four ${data.soc >= 90
-                                    ? 'rischio4'
-                                    : data.soc >= 80
-                                        ? 'rischio44'
-                                        : data.soc >= 75
-                                            ? 'rischio3'
-                                            : data.soc > 60
-                                                ? 'rischio33'
-                                                : data.soc >= 50
-                                                    ? 'rischio2'
-                                                    : data.soc > 30
-                                                        ? 'rischio22'
-                                                        : data.soc >= 25
-                                                            ? 'rischio1'
-                                                            : 'rischio11'
-                                    }`}>
+                                <div className={`bg-[#e7e7e7] shadow-[0_-3px_6px_2px_rgba(0,_0,_0,_0.5)] w-[10vw] h-[6vw] rounded-t-full relative overflow-hidden four rischio`}>
                                     <div className="slice-colors h-full relative">
                                         <div className="st slice-item absolute bottom-0 w-0 h-0 border-[2.5vw] border-transparent"></div>
                                         <div className="st slice-item absolute bottom-0 w-0 h-0 border-[2.5vw] border-transparent"></div>
@@ -204,7 +207,7 @@ const Ess = ({ BaseUrl }) => {
                                         <div className="absolute text-[1.3vh] text-center z-10 bottom-[75%] left-[49%] transform translate-x-[-50%] translate-y-[50%] font-semibold text-black">Medium</div>
                                         <div className="absolute text-[1.3vh] text-center z-10 top-[70%] left-[12%] transform translate-x-[-50%] translate-y-[-50%] font-semibold text-black">Low</div>
                                     </div>
-                                    
+
                                     <div className="text-sm text-opacity-60 text-center mt-4 absolute w-[60%] h-[60%] bg-white rounded-t-[100px] shadow-[0_-8px_10px_-7px_rgba(0,0,0,0.38)] right-[21%] bottom-0 z-[10]">
                                         <div className="needle"></div>
                                         <div className="text-sm text-opacity-60 text-center mt-4 mb-1"></div>
