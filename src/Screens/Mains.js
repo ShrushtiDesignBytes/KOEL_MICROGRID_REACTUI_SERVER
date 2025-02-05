@@ -265,10 +265,10 @@ const Mains = ({ BaseUrl }) => {
                         </div>
                     </div>
 
-                    <div id="grid-it-rl" className="rounded-lg mt-2 p-4" ref={containerRef}>
+                    <div id="grid-it-rl" className="rounded-lg mt-2 p-4 bg-[#030F0E]" ref={containerRef}>
                         <div className="flex justify-between mb-4">
                             <p className="text-sm xl:text-base text-white">Energy Generated Today</p>
-                            <p className="text-xs xl:text-sm text-white">Total Daily Generation: {data.avg_total_generation} kWh</p>
+                            <p className="text-xs xl:text-sm text-white">Total Daily Generation: {data.avg_daily_total_generation} kWh</p>
                         </div>
                         <p className="text-xs xl:text-sm text-[#AFB2B2] mt-2 text-start">Updated 15 min ago</p>
                         <div className="mt-4 h-[250px] xl:h-[300px]" id="my_dataviz"></div>

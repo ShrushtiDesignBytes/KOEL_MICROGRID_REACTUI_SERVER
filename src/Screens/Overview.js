@@ -355,7 +355,7 @@ const Overview = ({ BaseUrl, Url }) => {
     const saving = !loading && 0.5 * alldata.solar.avg_total_generation - (17 * alldata.mains.avg_total_generation + 25 * alldata.genset.avg_total_generation)
     const average_power_kwh = !loading && Math.floor((alldata.solar.avg_total_generation + alldata.mains.avg_total_generation + alldata.genset.avg_total_generation + alldata.wind.avg_total_generation + alldata.biogas.avg_total_generation + alldata.ess.avg_total_generation) / 6);
     const average_power_kVA = !loading && Math.floor((alldata.solar.avg_kVA + alldata.mains.avg_kVA + alldata.genset.avg_kVA + alldata.wind.avg_kVA + alldata.biogas.avg_kVA + alldata.ess.avg_kVA) / 6);
-    const total_generation = !loading && alldata.solar.avg_total_generation + alldata.mains.avg_total_generation + alldata.wind.avg_total_generation + alldata.biogas.avg_total_generation;
+    const total_generation = !loading && alldata.solar.avg_daily_total_generation + alldata.mains.avg_daily_total_generation + alldata.wind.avg_daily_total_generation + alldata.biogas.avg_daily_total_generation;
 
     return (
         !loading && <div className="p-4">
@@ -371,7 +371,7 @@ const Overview = ({ BaseUrl, Url }) => {
                                 <img
                                     src={image.src}
                                     alt={image.label}
-                                    className="object-cover rounded-lg w-full h-full"
+                                    className="object-cover rounded-lg w-full h-[330px]"
                                     onLoad={handleImageLoad}
                                     onError={handleImageError}
                                 />
