@@ -17,7 +17,7 @@ const Wind = ({ BaseUrl }) => {
     useEffect(() => {
         const fetchPowerData = async () => {
             try {
-                const response = await fetch(`${BaseUrl}/wind/chart`);
+                const response = await fetch(`${BaseUrl}/wind/excel`);
                 const result = await response.json();
                 setChartData(result);
             } catch (error) {
@@ -121,14 +121,14 @@ const Wind = ({ BaseUrl }) => {
 
             // Define the curve
             svg.select('.curve')
-                .attr('d', d3.line().x((d) => x(d.hour)).y((d) => y(+d.power)).curve(d3.curveBasis));
+                .attr('d', d3.line().x((d) => x(d.hour)).y((d) => y(+d.kwh_reading)).curve(d3.curveBasis));
 
             // Define the shadow (area beneath the curve)
             svg.select('.shadow')
                 .attr('d', d3.area()
                     .x((d) => x(d.hour))
                     .y0(height)  // Start from the bottom (X-axis line)
-                    .y1((d) => y(+d.power))
+                    .y1((d) => y(+d.kwh_reading))
                     .curve(d3.curveBasis)
                 );
         }
@@ -141,7 +141,7 @@ const Wind = ({ BaseUrl }) => {
 
         const x = d3.scaleLinear().domain([pastHour, currentHour]).range([0, 0]);
         // const x = d3.scaleLinear().domain([8, 16]).range([0, width]);
-        const y = d3.scaleLinear().domain([0, d3.max(data, (d) => +d.power)]).nice().range([0, 0]);
+        const y = d3.scaleLinear().domain([0, d3.max(data, (d) => +d.kwh_reading)]).nice().range([0, 0]);
 
         svg.append('g').attr('class', 'x-axis');
         svg.append('g').attr('class', 'y-axis');
@@ -192,7 +192,7 @@ const Wind = ({ BaseUrl }) => {
                 const d1 = data[i];
                 const dHover = x.invert(d3.pointer(event)[0]) - d0.hour > d1.hour - x.invert(d3.pointer(event)[0]) ? d1 : d0;
                 tooltip.transition().duration(200).style('opacity', 0.9);
-                tooltip.html(`Hour: ${formatAMPM(dHover.hour)}, Power: ${dHover.power}`).style('left', event.pageX + 'px').style('top', event.pageY - 28 + 'px');
+                tooltip.html(`Hour: ${formatAMPM(dHover.hour)}, Power: ${dHover.kwh_reading}`).style('left', event.pageX + 'px').style('top', event.pageY - 28 + 'px');
             })
             .on('mouseout', function () {
                 tooltip.transition().duration(500).style('opacity', 0);
@@ -213,9 +213,10 @@ const Wind = ({ BaseUrl }) => {
     };
 
     const utilisation_factor = !loading && (data.operating_hours / 1000) * 100;
+    const total_daily_kwh = !loading && chartData.reduce((sum, row) => sum + row.kwh_reading, 0)
 
     return (
-        !loading && <div className="p-4">
+         !loading && <div className="p-4">
             {/* First Row Section */}
             <div className="grid grid-cols-2 gap-5">
                 <div className="relative block">
@@ -231,9 +232,9 @@ const Wind = ({ BaseUrl }) => {
                         <div className="mr-3">
                             <img src="assets/Windmph.png" alt="wind speed" className="h-12 max-h-[50%] max-w-full" />
                         </div>
-                    </div> */}
+                    </div>
 
-                    {/* <div className="absolute top-5 left-7 flex items-center max-w-[calc(100%-40px)]">
+                    <div className="absolute top-5 left-7 flex items-center max-w-[calc(100%-40px)]">
                         <img src="assets/WindVector.svg" alt="wind vector" className="h-6 text-[#8947c3]" />
                         <p className="text-[#be967e] text-lg font-bold ml-2">12mph</p>
                     </div> */}
@@ -246,15 +247,14 @@ const Wind = ({ BaseUrl }) => {
                         </div>
                     </div>
 
-                    <div className="absolute bottom-7 left-[35%] flex items-center max-w-[calc(100%-40px)] text-white">
-                        <div className="mr-2">
-                            {data.breaker_status === 'On' ? <img src="assets/Icons-Status.png" className="h-10 max-h-1/2 max-w-full" alt='image' />
-                                : <img src="assets/Icons-Status-Red.png" className="h-6 max-h-1/2 max-w-full mr-2" alt='image' />}
-
-                        </div>
-                        <div>
-                            <p className="text-xs xl:text-sm text-[#959999] mb-1">Status</p>
-                            <p className="text-sm xl:text-base">Active</p>
+                    <div className="absolute bottom-[7%] left-[35%] transform translate-x-[-20%] translate-y-[20%] p-2 bg-transparent text-white rounded-md z-10 flex items-center max-w-[calc(100%-40px)]">
+                        <div className="flex items-center">
+                            <div>
+                                <p className="text-xs xl:text-sm text-[#959999] pb-1 m-0">Status</p>
+                                <p className="text-sm xl:text-base m-0">{(data.voltagel.phase1 > 200 && data.voltagel.phase2 > 200 && data.voltagel.phase3 > 200) &&
+                                    (data.kW.phase1 >= 1 && data.kW.phase2 >= 1 && data.kW.phase3 >= 1) ? <div className='flex items-center gap-2'><div className='bg-[#30F679] rounded-full w-4 h-4'></div><div className='text-[#30F679]'>Active</div></div>
+                                    : <div className='flex items-center gap-2'><div className='bg-[#DBDBDB] rounded-full w-4 h-4'></div><div className='text-[#DBDBDB]'>Inactive</div></div>}</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -267,22 +267,22 @@ const Wind = ({ BaseUrl }) => {
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Generation</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.avg_total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.kwh} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Utilisation</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-utilisation">{data.avg_total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-utilisation">{data.kwh} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Savings</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.avg_total_generation}</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {data.kwh}</p>
                         </div>
                     </div>
 
                     <div id="grid-it-rl" className="rounded-lg mt-2 p-4 bg-[#030F0E]" ref={containerRef}>
                         <div className="flex justify-between mb-4">
                             <p className="text-sm xl:text-base text-white">Energy Generated Today</p>
-                            <p className="text-xs xl:text-sm text-white">Total Daily Generation: {data.avg_daily_total_generation} kWh</p>
+                            <p className="text-xs xl:text-sm text-white">Total Daily Generation: {total_daily_kwh} kWh</p>
                         </div>
                         <p className="text-xs xl:text-sm text-[#AFB2B2] mt-2 text-start">Updated 15 min ago</p>
                         <div className="mt-4 h-[250px] xl:h-[300px]" id="my_dataviz"></div>
@@ -298,14 +298,14 @@ const Wind = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 gap-3 flex flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">
                                     <img src="assets/Icons.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-generated">{data.power_generated_yesterday?.toFixed(2) || 0}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power-generated">{(Number(data?.power_generated_yesterday) || 0).toFixed(2)}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Power Generated Yesterday</p>
                             </div>
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex gap-3 flex-col justify-between">
                                 <div className="flex items-center justify-between mb-2">
                                     <img src="assets/Icons (5).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="hours">{data.hours_operated_yesterday}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="hours">{data.avg_hours_operated}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Hours operated Yesterday</p>
                             </div>
@@ -314,14 +314,14 @@ const Wind = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/Icons (2).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation">{utilisation_factor.toFixed(2)}%</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation">{utilisation_factor.toFixed(2)}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Utilisation Factor</p>
                             </div>
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/Icons (6).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power">{data.power_factor}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="power">{data.power_factor ? data.power_factor : 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Power Factor</p>
                             </div>
@@ -330,14 +330,15 @@ const Wind = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/Icons (3).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="frequency">{data.frequency}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="frequency">{data.frequency ? data.frequency : 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Frequency (Hz)</p>
                             </div>
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/Icons (4).svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="breakerstatus">{data.breaker_status}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="breakerstatus">{(data.voltagel.phase1 > 200 && data.voltagel.phase2 > 200 && data.voltagel.phase3 > 200) &&
+                                (data.kW.phase1 >= 1 && data.kW.phase2 >= 1 && data.kW.phase3 >= 1) ? 'On' : 'OFF'}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Breaker Status</p>
                             </div>
@@ -483,7 +484,7 @@ const Wind = ({ BaseUrl }) => {
                                     </tr>
                                 </tbody>
                             </table>
-                        </div>
+                        </div> 
                     </div>
                 </div>
             </div>

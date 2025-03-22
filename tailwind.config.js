@@ -4,6 +4,7 @@ module.exports = {
   theme: {
     extend: {
       screens: {
+        'max-lg': '1400px',
         'xl': '1920px',  // Setting 1920px as the xl breakpoint
       },
       fontFamily: {

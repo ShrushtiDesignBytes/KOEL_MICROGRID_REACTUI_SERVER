@@ -1,8 +1,9 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable jsx-a11y/heading-has-content */
 /* eslint-disable jsx-a11y/img-redundant-alt */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import ProgressBar from '../Components/ProgressBar';
+import * as d3 from 'd3';
 
 const Genset = ({ BaseUrl }) => {
     const [data, setData] = useState({})
@@ -11,6 +12,27 @@ const Genset = ({ BaseUrl }) => {
     const [shutdownCount, setShutdownCount] = useState(0);
     const [loading, setLoading] = useState(true);
     const [severity, setSeverity] = useState('')
+    const [imageLoaded, setImageLoaded] = useState(false);
+    const containerRef = useRef(null);
+    const [chartData, setChartData] = useState([]);
+
+    useEffect(() => {
+        const fetchPowerData = async () => {
+            try {
+                const response = await fetch(`${BaseUrl}/genset/excel`)
+                const result = await response.json();
+                //  console.log(result)
+                setChartData(result);
+            } catch (error) {
+                console.error('Error fetching power data:', error);
+            }
+        };
+
+        fetchPowerData();
+        const interval = setInterval(fetchPowerData, 15 * 60 * 1000); // 15 minutes
+
+        return () => clearInterval(interval);
+    }, []);
 
     const fetchAlerts = async () => {
         try {
@@ -49,19 +71,187 @@ const Genset = ({ BaseUrl }) => {
         return () => clearInterval(interval);
     }, []);
 
+    useEffect(() => {
+        if (imageLoaded && !loading) {
+            displayDataCurveGraph(chartData);
+        }
+    }, [imageLoaded, loading, chartData]);
+
+
+    const handleImageLoad = () => {
+        setImageLoaded(true);
+    };
+
+    const handleImageError = () => {
+        console.error('Image failed to load');
+    };
+
     const displayCounts = (data) => {
         const gensetData = data.filter((i) => i.category === 'genset');
 
         const healthIndex = gensetData[gensetData.length - 1];
         setSeverity(healthIndex.severity.toLowerCase());
-        
+
         const alerts = gensetData.filter((i) => i.severity.toLowerCase() === 'alert');
         const shutdown = gensetData.filter((i) => i.severity.toLowerCase() === 'shutdown');
         setAlertCount(alerts.length);
         setShutdownCount(shutdown.length);
     };
 
+    const displayDataCurveGraph = (data) => {
+        const margin = { top: 10, right: 10, bottom: 40, left: 20 };
+
+        d3.select(containerRef.current).selectAll('svg').remove();
+        const container = containerRef.current;
+
+        const width = container.offsetWidth - margin.left - margin.right - 60;
+        const height = container.offsetHeight - margin.top - margin.bottom - 60;
+
+        function updateDimensions() {
+            if (!containerRef.current) return;
+
+            svg.attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom);
+
+            x.range([0, width]);
+            y.range([height, 0]);
+
+            svg.select('.x-axis')
+                .attr('transform', `translate(0, ${height})`)
+                .call(d3.axisBottom(x).ticks(6).tickFormat(formatAMPM))
+                .selectAll('text')
+                .style('fill', 'white')
+                .style('font-size', width > 400 ? '14px' : '10px');
+
+            svg.select('.y-axis')
+                .call(d3.axisLeft(y).ticks(5).tickSize(4).tickFormat(() => ''))
+                .selectAll('text')
+                .style('fill', 'white');
+
+            svg.select('.curve')
+                .attr('d', d3.line().x((d) => x(d.hour)).y((d) => y(+d.kwh_reading)).curve(d3.curveBasis));
+
+            svg.select('.shadow')
+                .attr('d', d3.area()
+                    .x((d) => x(d.hour))
+                    .y0(height)
+                    .y1((d) => y(+d.kwh_reading))
+                    .curve(d3.curveBasis)
+                );
+        }
+
+        const svg = d3.select('#my_dataviz')
+            .append('svg')
+            .attr('width', '100%')
+            .attr('height', '100%')
+            .append('g')
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+
+        const now = new Date();
+        const currentHour = now.getHours();
+        const pastHour = (currentHour - 6 + 24) % 24;
+
+        // Filter data to only include the last 6 hours, handling the hour wrap around
+        const filteredData = data.filter((d) => {
+            const hour = parseInt(d.hour, 10);
+            if (pastHour <= currentHour) {
+                return hour >= pastHour && hour <= currentHour;
+            } else {
+                return hour >= pastHour || hour <= currentHour;
+            }
+        });
+
+        const x = d3.scaleLinear()
+            .domain([pastHour, currentHour < pastHour ? currentHour + 24 : currentHour])
+            .range([0, width]);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(filteredData, (d) => +d.kwh_reading)])
+            .nice()
+            .range([height, 0]);
+
+        svg.append('g')
+            .attr('class', 'x-axis')
+            .attr('transform', `translate(0,${height})`)
+            .call(d3.axisBottom(x)
+                .ticks(6)
+                .tickFormat((d) => formatAMPM(d % 24))
+            );
+
+        svg.append('g')
+            .attr('class', 'y-axis')
+            .call(d3.axisLeft(y));
+
+        svg.append('path')
+            .datum(filteredData)
+            .attr('class', 'curve')
+            .attr('fill', 'none')
+            .attr('stroke', '#68BFB6')
+            .attr('stroke-width', 2)
+            .attr('d', d3.line()
+                .x((d) => x(d.hour >= pastHour ? d.hour : d.hour + 24))
+                .y((d) => y(+d.kwh_reading))
+                .curve(d3.curveBasis)
+            )
+            .attr('clip-path', 'url(#clip)');
+
+        const gradient = svg.append('defs').append('linearGradient')
+            .attr('id', 'shadowGradient')
+            .attr('x1', '0%')
+            .attr('y1', '0%')
+            .attr('x2', '0%')
+            .attr('y2', '100%');
+
+        gradient.append('stop').attr('offset', '0%').attr('stop-color', '#0A3D38').attr('stop-opacity', 0.9);
+        gradient.append('stop').attr('offset', '80%').attr('stop-color', '#0A3D38').attr('stop-opacity', 0);
+
+
+        svg.append('path')
+            .datum(filteredData)
+            .attr('class', 'shadow')
+            .attr('fill', 'url(#shadowGradient)')
+            .attr('d', d3.area()
+                .x((d) => x(d.hour >= pastHour ? d.hour : d.hour + 24))
+                .y0(height)
+                .y1((d) => y(+d.kwh_reading))
+                .curve(d3.curveBasis)
+            )
+            .attr('clip-path', 'url(#clip)');
+
+        const tooltip = d3.select('body').append('div').attr('class', 'tooltip').style('opacity', 0);
+
+        svg.selectAll('.curve, .shadow')
+            .on('mouseover', function (event, d) {
+                const bisect = d3.bisector((d) => d.hour).right;
+                const i = bisect(data, x.invert(d3.pointer(event)[0]));
+                const d0 = data[i - 1];
+                const d1 = data[i];
+                const dHover = x.invert(d3.pointer(event)[0]) - d0.hour > d1.hour - x.invert(d3.pointer(event)[0]) ? d1 : d0;
+                tooltip.transition().duration(200).style('opacity', 0.9);
+                tooltip.html(`Hour: ${formatAMPM(dHover.hour)}, Power: ${dHover.kwh_reading}`).style('left', event.pageX + 'px').style('top', event.pageY - 28 + 'px');
+            })
+            .on('mouseout', function () {
+                tooltip.transition().duration(500).style('opacity', 0);
+            });
+
+        function formatAMPM(hour) {
+            hour = hour % 24;
+            const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+            const ampm = hour >= 12 ? 'PM' : 'AM';
+            return `${formattedHour}${ampm}`;
+        }
+
+        updateDimensions();
+        window.addEventListener('resize', updateDimensions);
+
+        return () => {
+            window.removeEventListener('resize', updateDimensions);
+        };
+    };
+
     const utilisation_factor = !loading && (data.operating_hours / 1000) * 100;
+    const operational = !loading && ((data.fuel_level / 100) * 460) / 55;
+    const total_daily_kwh = !loading && chartData.reduce((sum, row) => sum + row.kwh_reading, 0)
 
     return (
         !loading && <div className="p-4">
@@ -74,17 +264,20 @@ const Genset = ({ BaseUrl }) => {
                             src="assets/genset_n.png"
                             alt="overview"
                             className="block w-full h-full object-contain"
+                            onLoad={handleImageLoad}
+                            onError={handleImageError}
                         />
                     </div>
-                    <div className="absolute top-7 left-5 transform -translate-x-1/5 translate-y-1/5 p-1.5 bg-transparent text-white rounded z-10 flex items-center max-w-[calc(100%-40px)]">
-                        <div className="mr-2.5">
-                            {data.voltagel.phase1 > 200 && data.voltagel.phase2 > 200 && data.voltagel.phase3 > 200 ? <img src="assets/Group.png" className="max-h-1/2 max-w-full" alt="Group Icon" />
-                                : <img src="assets/genset_off.png" className="max-h-14 max-w-full" alt="Group Icon" />}
+                    <div className="absolute top-2 right-3 transform -translate-x-1/5 translate-y-1/5 p-1.5 bg-transparent text-white rounded z-10 flex items-center max-w-[calc(100%-40px)]">
+                        <div>
+                            {(data.voltagel.phase1 > 200 && data.voltagel.phase2 > 200 && data.voltagel.phase3 > 200) &&
+                                (data.kW.phase1 >= 1 && data.kW.phase2 >= 1 && data.kW.phase3 >= 1) ? <div className='flex items-center gap-2'><div className='bg-[#30F679] rounded-full w-4 h-4'></div><div className='text-[#30F679]'>Active</div></div>
+                                : <div className='flex items-center gap-2'><div className='bg-[#DBDBDB] rounded-full w-4 h-4'></div><div className='text-[#DBDBDB]'>Inactive</div></div>}
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-rows-[25%_25%_43%] gap-4">
+                <div className="grid grid-rows-[25%_70%] gap-4">
                     <div className="grid grid-cols-4 gap-2 mt-1">
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Operating Hours</p>
@@ -92,118 +285,58 @@ const Genset = ({ BaseUrl }) => {
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Generation</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.avg_total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-generation">{data.kwh} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Consumption</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-consumption">{data.avg_total_generation} kWh</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-consumption">{data.kwh} kWh</p>
                         </div>
                         <div className="bg-[#051E1C] rounded-lg flex flex-col items-center justify-center">
                             <p className="text-xs xl:text-sm text-[#C37C5A] font-medium text-center">Total Cost</p>
-                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR 0</p>
+                            <p className="text-lg xl:text-xl font-semibold text-[#F3E5DE] pt-2" id="total-savings">INR {25 * data.kwh}</p>
                         </div>
                     </div>
 
-                    <div className="rounded-lg mr-0 p-2 bg-[#051e1c]">
-                        <div className="ml-2">
-                            <p className="text-white text-start text-base font-bold">Health Index</p>
+                    <div className="rounded-lg mr-0 grid grid-cols-[60%_38%] gap-3">
+                        {/* <div className="flex justify-between gap-3 rounded-lg border"> */}
+                        <div className="rounded-lg p-4 bg-[#051e1c]" id="grid-it-rl" ref={containerRef}>
+                            <div className="flex justify-between mb-4">
+                                <h5 className="text-[11px] xl:text-base text-white">Energy Generated Today</h5>
+                                <p className="text-white text-[10px] xl:text-sm font-normal">Total Daily Generation: {total_daily_kwh} kWh</p>
+                            </div>
+                            {/* <p className="text-[#AFB2B2] text-xs xl:text-sm mt-3 ">Updated 15 min ago</p> */}
+                            <div className="mt-4 md:h-[200px] max-lg:h-[250px] xl:h-[330px]" id="my_dataviz"></div>
                         </div>
 
-                        <div className="flex ml-2 justify-between mt-7">
-                            {/* Red (Shutdown) */}
-                            <div className="bg-[#F12D2D] h-[10px] w-[90%] mr-[10px] ml-0 relative">
-                                {severity === 'shutdown' && (
-                                    <div
-                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
-                                        style={{ left: '50%' }}
-                                    >
-                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
-                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                        {/* </div> */}
+                        <div className="flex justify-between gap-3 rounded-lg bg-[#051e1c]">
+                            <div className="p-3 rounded-lg flex-1">
+                                <div className="flex flex-col justify-between items-center h-full">
+                                    <div className='flex justify-between items-center w-full'>
+                                        <h5 className="text-[#CACCCC] text-base flex font-semibold">Fuel Level</h5>
+                                        <p className="text-white text-base flex font-semibold">{Number(data.fuel_level)} %</p>
                                     </div>
-                                )}
-                            </div>
 
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FD9C2B] relative"></div>
-
-                            {/* Yellow (Other) */}
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#FCDE2D] relative">
-                                {severity === 'warning' && (
-                                    <div
-                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
-                                        style={{ left: '50%' }}
-                                    >
-                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
-                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
+                                    <div className="flex items-center justify-center w-full">
+                                        <ProgressBar fuellevel={Number(data.fuel_level)} />
                                     </div>
-                                )}
-                            </div>
 
-                            {/* Green */}
-                            <div className="h-[10px] w-[90%] mr-[10px] ml-0 bg-[#199E2E] relative">
-                                {severity !== 'shutdown' && severity !== 'warning' && (
-                                    <div
-                                        className="absolute -top-[1.75rem] xl:-top-[2.2rem] flex flex-col items-center justify-center"
-                                        style={{ left: '50%' }}
-                                    >
-                                        <p className="text-white m-0 p-0 text-sm xl:text-base">50</p>
-                                        <img src="assets/arrow.png" alt="Arrow" className="w-5 h-5 xl:w-6 xl:h-6 mt-1" />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-
-                        <div className="flex justify-between p-2 rounded-b-lg">
-                            <div className="text-xs xl:text-sm whitespace-nowrap text-[#959999]">
-                                Last Maintenance Date: <span id="last-maintenance" className="text-white">{data.maintainance_last_date}</span>
-                            </div>
-
-                            <div className="text-xs xl:text-sm whitespace-nowrap text-[#959999]">
-                                Next Maintenance Date: <span id="next-maintenance" className="text-white">{data.next_maintainance_date}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between gap-3 rounded-lg">
-                        <div className="bg-[#030F0E] p-4 rounded-lg flex-1">
-                            <div className="flex flex-col items-start ml-2">
-                                <h5 className="text-[#CACCCC] text-lg flex font-semibold">Fuel</h5>
-                                <div className="mt-4 mb-3">
-                                    <div className="w-44 h-12 flex items-center justify-center">
-                                        <ProgressBar value={Number(data.tankCapacity)} />
-                                    </div>
-                                </div>
-                                <p className="text-[#CACCCC] text-sm xl:text-base">Tank Capacity - {data.tankCapacity} litres</p>
-                                <p className="text-[#CACCCC] text-sm xl:text-base mt-2">Operational - {data.operational} hours</p>
-                            </div>
-                        </div>
-
-                        <div className="bg-[#030F0E] p-4 rounded-lg flex-1">
-                            <h5 className="text-[#CACCCC] xl:text-lg font-semibold text-base mb-5 flex justify-between">
-                                Energy Consumption
-                            </h5>
-
-                            <div className='pb-2 justify-between mb-2 gap-5'>
-                                <div className="w-full flex flex-col gap-2 mt-5">
-                                    <div className="text-[#959999] text-sm xl:text-base text-start">Critical Load</div>
-                                    <div className="flex flex-row items-center gap-2 w-full">
-                                        <div className="bg-[#00283a] rounded-lg h-2 flex-grow">
-                                            <div className="bg-[#48d0d0] rounded-lg h-full" style={{ width: `100%` }}></div>
+                                    <div className='xl:mt-4 p-2 bg-[#022F2A] w-full'>
+                                        <div className='flex justify-between'>
+                                            <div className="text-[#CACCCC] text-sm xl:text-base">Tank Capacity  -  </div>
+                                            <div className='pl-2 text-[#CACCCC] text-sm xl:text-base'>460 <br />litres</div>
                                         </div>
-                                        <h6 className="text-xs text-white mb-0" id="critical-load">100%</h6>
-                                    </div>
-                                </div>
-                                <div className="w-full flex flex-col gap-2 mt-5">
-                                    <div className="text-[#959999] text-sm xl:text-base text-start">Non-Critical Load</div>
-                                    <div className="flex flex-row items-center gap-2 w-full">
-                                        <div className="bg-[#00283a] rounded-lg h-2 flex-grow">
-                                            <div className="bg-[#d8d362] rounded-lg h-full" style={{ width: `100%` }}></div>
+                                        <div className='flex justify-between pt-2'>
+                                            <div className="text-[#CACCCC] text-sm xl:text-base">Operational  -  </div>
+                                            <div className='pl-2 text-[#CACCCC] text-sm xl:text-base'>{operational?.toFixed(2) || 0} <br />hours</div>
                                         </div>
-                                        <h6 className="text-xs text-white mb-0" id="critical-load">100%</h6>
                                     </div>
                                 </div>
                             </div>
+
+
                         </div>
+
                     </div>
                 </div>
             </div>
@@ -255,7 +388,7 @@ const Genset = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/utilisationF.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation-factor">{utilisation_factor.toFixed(2)}%</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="utilisation-factor">{utilisation_factor.toFixed(2)}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Utilisation Factor</p>
                             </div>
@@ -264,14 +397,14 @@ const Genset = ({ BaseUrl }) => {
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/freq.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="frequency">{data.frequency}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="frequency">{data.frequency ? data.frequency : 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Frequency (Hz)</p>
                             </div>
                             <div className="bg-[#051e1c] rounded-md mb-2 p-2 flex flex-col justify-between">
                                 <div className="flex items-center justify-between">
                                     <img src="assets/charging1.svg" alt='image' />
-                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="battery-charged">{data.power_factor}</h6>
+                                    <h6 className="text-[#F3E5DE] text-sm xl:text-base font-semibold" id="battery-charged">{data.power_factor ? data.power_factor : 0}</h6>
                                 </div>
                                 <p className="text-sm xl:text-base text-[#AFB2B2] text-start">Power Factor</p>
                             </div>
@@ -382,7 +515,7 @@ const Genset = ({ BaseUrl }) => {
                             <table className="table-style w-full border-collapse">
                                 <thead className="thead-style bg-[#051E1C] text-[#68BFB6]">
                                     <tr className="text-xs xl:text-sm text-center font-medium">
-                                        <th className="whitespace-nowrap p-4 rounded-tl-lg font-medium">Power</th>
+                                        <th className="whitespace-nowrap p-3 rounded-tl-lg font-medium">Power</th>
                                         <th className="p-2 font-medium">Phase 1</th>
                                         <th className="p-2 font-medium">Phase 2</th>
                                         <th className="p-2 rounded-tr-lg font-medium">Phase 3</th>

@@ -60,12 +60,12 @@ const Overview = ({ BaseUrl, Url }) => {
     }, []);
 
     const datas = !loading && {
-        solar: alldata.solar.avg_total_generation,
-        wind: alldata.wind.avg_total_generation,
-        biogas: alldata.biogas.avg_total_generation,
-        ess: alldata.ess.avg_total_generation,
-        genset: alldata.genset.avg_total_generation,
-        mains: alldata.mains.avg_total_generation
+        solar: alldata.solar.kwh,
+        wind: alldata.wind.kwh,
+        biogas: alldata.biogas.kwh,
+        ess: alldata.ess.kwh,
+        genset: alldata.genset.kwh,
+        mains: alldata.mains.kwh
     }
 
     const chartdata = calculatePercentages(datas);
@@ -112,6 +112,7 @@ const Overview = ({ BaseUrl, Url }) => {
     };
 
     const displayDataCurveGraph = (data) => {
+        //console.log(data)
         if (!myDatavizRef.current || !myDatavizRef.current.parentElement) {
             console.error("Graph container or its parent doesn't exist.");
             return;
@@ -147,7 +148,7 @@ const Overview = ({ BaseUrl, Url }) => {
             .range([0, width]);
 
         const y = d3.scaleLinear()
-            .domain([0, d3.max(data, d => +d.power)]).nice()
+            .domain([0, d3.max(data, d => +d.kwh_reading)]).nice()
             .range([height, 0]);
 
         // Define a clip path to restrict the curve and area to the chart area
@@ -182,7 +183,7 @@ const Overview = ({ BaseUrl, Url }) => {
             .attr('stroke-width', 2)
             .attr('d', d3.line()
                 .x(d => x(d.hour))
-                .y(d => y(+d.power))
+                .y(d => y(+d.kwh_reading))
                 .curve(d3.curveBasis)
             );
 
@@ -215,7 +216,7 @@ const Overview = ({ BaseUrl, Url }) => {
             .attr('d', d3.area()
                 .x(d => x(d.hour))
                 .y0(height)
-                .y1(d => y(+d.power))
+                .y1(d => y(+d.kwh_reading))
                 .curve(d3.curveBasis)
             );
 
@@ -241,7 +242,7 @@ const Overview = ({ BaseUrl, Url }) => {
                 if (dClosest) {
                     tooltipRef.current
                         .style('opacity', 0.9)
-                        .html(`Hour: ${formatAMPM(dClosest.hour)}, Power: ${dClosest.power}`)
+                        .html(`Hour: ${formatAMPM(dClosest.hour)}, Power: ${dClosest.kwh_reading}`)
                         .style('left', `${event.pageX + 10}px`)
                         .style('top', `${event.pageY - 28}px`);
                 }
@@ -309,12 +310,60 @@ const Overview = ({ BaseUrl, Url }) => {
     };
 
     const images = [
-        { src: "assets/image 12.png", label: "WIND", hours: !loading && alldata.wind.operating_hours, generations: !loading && alldata.wind.avg_total_generation },
-        { src: "assets/image 13.png", label: "SOLAR", hours: !loading && alldata.solar.operating_hours, generations: !loading && alldata.solar.avg_total_generation },
-        { src: "assets/image 11.png", label: "BIOGAS", hours: !loading && alldata.biogas.operating_hours, generations: !loading && alldata.biogas.avg_total_generation },
-        { src: "assets/image 14.png", label: "MAINS", hours: !loading && alldata.mains.operating_hours, generations: !loading && alldata.mains.avg_total_generation },
-        { src: "assets/image 16.png", label: "ESS", hours: !loading && alldata.ess.operating_hours, generations: !loading && alldata.ess.avg_total_generation },
-        { src: "assets/image 15.png", label: "GENSET", hours: !loading && alldata.genset.operating_hours, generations: !loading && alldata.genset.avg_total_generation },
+        { src: "assets/image 12.png", label: "WIND", hours: !loading && alldata.wind.operating_hours, generations: !loading && alldata.wind.kwh, status:
+            !loading && alldata.wind.voltagel.phase1 > 200 &&
+            !loading && alldata.wind.voltagel.phase2 > 200 &&
+            !loading && alldata.wind.voltagel.phase3 > 200 &&
+            !loading && alldata.wind.kW.phase1 >= 1 &&
+            !loading && alldata.wind.kW.phase2 >= 1 &&
+            !loading && alldata.wind.kW.phase3 >= 1
+              ? "active"
+              : "inactive"  },
+        { src: "assets/image 13.png", label: "SOLAR", hours: !loading && alldata.solar.operating_hours, generations: !loading && alldata.solar.kwh, status:
+            !loading && alldata.solar.voltagel.phase1 > 200 &&
+            !loading && alldata.solar.voltagel.phase2 > 200 &&
+            !loading && alldata.solar.voltagel.phase3 > 200 &&
+            !loading && alldata.solar.kW.phase1 >= 1 &&
+            !loading && alldata.solar.kW.phase2 >= 1 &&
+            !loading && alldata.solar.kW.phase3 >= 1
+              ? "active"
+              : "inactive"  },
+        { src: "assets/image 11.png", label: "BIOGAS", hours: !loading && alldata.biogas.operating_hours, generations: !loading && alldata.biogas.kwh, status:
+            !loading && alldata.biogas.voltagel.phase1 > 200 &&
+            !loading && alldata.biogas.voltagel.phase2 > 200 &&
+            !loading && alldata.biogas.voltagel.phase3 > 200 &&
+            !loading && alldata.biogas.kW.phase1 >= 1 &&
+            !loading && alldata.biogas.kW.phase2 >= 1 &&
+            !loading && alldata.biogas.kW.phase3 >= 1
+              ? "active"
+              : "inactive"  },
+        { src: "assets/image 14.png", label: "MAINS", hours: !loading && alldata.mains.operating_hours, generations: !loading && alldata.mains.kwh, status:
+            !loading && alldata.mains.voltagel.phase1 > 200 &&
+            !loading && alldata.mains.voltagel.phase2 > 200 &&
+            !loading && alldata.mains.voltagel.phase3 > 200 &&
+            !loading && alldata.mains.kW.phase1 >= 1 &&
+            !loading && alldata.mains.kW.phase2 >= 1 &&
+            !loading && alldata.mains.kW.phase3 >= 1
+              ? "active"
+              : "inactive"  },
+        { src: "assets/image 16.png", label: "ESS", hours: !loading && alldata.ess.operating_hours, generations: !loading && alldata.ess.kwh, status:
+            !loading && alldata.ess.voltagel.phase1 > 200 &&
+            !loading && alldata.ess.voltagel.phase2 > 200 &&
+            !loading && alldata.ess.voltagel.phase3 > 200 &&
+            !loading && alldata.ess.kW.phase1 >= 1 &&
+            !loading && alldata.ess.kW.phase2 >= 1 &&
+            !loading && alldata.ess.kW.phase3 >= 1
+              ? "active"
+              : "inactive"  },
+        { src: "assets/image 15.png", label: "GENSET", hours: !loading && alldata.genset.operating_hours, generations: !loading && alldata.genset.kwh, status:
+            !loading && alldata.genset.voltagel.phase1 > 200 &&
+            !loading && alldata.genset.voltagel.phase2 > 200 &&
+            !loading && alldata.genset.voltagel.phase3 > 200 &&
+            !loading && alldata.genset.kW.phase1 >= 1 &&
+            !loading && alldata.genset.kW.phase2 >= 1 &&
+            !loading && alldata.genset.kW.phase3 >= 1
+              ? "active"
+              : "inactive"  },
     ];
 
 
@@ -352,10 +401,14 @@ const Overview = ({ BaseUrl, Url }) => {
         'rgba(176, 197, 164, 1)',
         'rgba(242, 193, 141, 1)'];
 
-    const saving = !loading && 0.5 * alldata.solar.avg_total_generation - (17 * alldata.mains.avg_total_generation + 25 * alldata.genset.avg_total_generation)
-    const average_power_kwh = !loading && Math.floor((alldata.solar.avg_total_generation + alldata.mains.avg_total_generation + alldata.genset.avg_total_generation + alldata.wind.avg_total_generation + alldata.biogas.avg_total_generation + alldata.ess.avg_total_generation) / 6);
-    const average_power_kVA = !loading && Math.floor((alldata.solar.avg_kVA + alldata.mains.avg_kVA + alldata.genset.avg_kVA + alldata.wind.avg_kVA + alldata.biogas.avg_kVA + alldata.ess.avg_kVA) / 6);
-    const total_generation = !loading && alldata.solar.avg_daily_total_generation + alldata.mains.avg_daily_total_generation + alldata.wind.avg_daily_total_generation + alldata.biogas.avg_daily_total_generation;
+    const saving = !loading && 0.5 * alldata.solar.kwh - (17 * alldata.mains.kwh + 25 * alldata.genset.kwh)
+    const before_yesterday_data = !loading && (alldata.solar.power_generated_before_yesterday + alldata.mains.power_generated_before_yesterday + alldata.genset.power_generated_before_yesterday + alldata.wind.power_generated_before_yesterday + alldata.biogas.power_generated_before_yesterday + alldata.ess.power_generated_before_yesterday)
+    const yesterday_data = !loading && (alldata.solar.power_generated_yesterday + alldata.mains.power_generated_yesterday + alldata.genset.power_generated_yesterday + alldata.wind.power_generated_yesterday + alldata.biogas.power_generated_yesterday + alldata.ess.power_generated_yesterday)
+    const average_power_kwh = !loading && (before_yesterday_data - yesterday_data) / 24;
+    const average_power_kVA = !loading && (before_yesterday_data - yesterday_data) / 24;
+
+    const total_generation = !loading && alldata.solar.avg_daily_total_generation + alldata.mains.avg_daily_total_generation;
+    const total_daily_kwh = !loading && chartData.reduce((sum, row) => sum + row.kwh_reading, 0)
 
     return (
         !loading && <div className="p-4">
@@ -371,10 +424,20 @@ const Overview = ({ BaseUrl, Url }) => {
                                 <img
                                     src={image.src}
                                     alt={image.label}
-                                    className="object-cover rounded-lg w-full h-[330px]"
+                                    className="object-cover rounded-lg w-full h-full"
                                     onLoad={handleImageLoad}
                                     onError={handleImageError}
                                 />
+                                {image.status === 'active' && 
+                                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#199E2E12,#199E2E80)] opacity-70 rounded-md"></div>}
+                                <div className="absolute -top-1 -right-1 transform translate-x-[-20%] translate-y-[20%] p-2 bg-transparent text-white rounded-md z-10 flex items-center max-w-[calc(100%-40px)] ">
+                                    <div className="flex items-center">
+                                        <div>
+                                            <p className="text-sm xl:text-base m-0">{image.status === 'active' ? <div className='flex items-center gap-2'><div className='bg-[#30F679] rounded-full w-4 h-4'></div><div className='text-[#30F679]'>Active</div></div>
+                                                : <div className='flex items-center gap-2'><div className='bg-[#DBDBDB] rounded-full w-4 h-4'></div><div className='text-[#DBDBDB]'>Inactive</div></div>}</p>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div className="absolute bottom-[15%] left-[20%] transform translate-x-[-20%] translate-y-[20%] p-2 bg-transparent text-white rounded z-10 w-[90%] flex flex-col">
                                     <div className="font-bold text-xl">{image.label}</div>
                                     <div className="flex justify-between mt-3 text-sm">
@@ -412,7 +475,7 @@ const Overview = ({ BaseUrl, Url }) => {
                     <p className="mt-2 text-white text-base xl:text-lg font-light mb-5">
                         Total Daily Generation:
                         <span className="bg-[#0821FF] text-sm xl:text-base rounded-full px-3 py-1 ml-2 inline-block font-extralight">
-                            {total_generation} kWh
+                            {total_daily_kwh} kWh
                         </span>
                     </p>
                     <div className="mt-4">
@@ -473,12 +536,12 @@ const Overview = ({ BaseUrl, Url }) => {
                             </thead>
                             <tbody className="table-body">
                                 {[
-                                    { src: './assets/Icons.png', name: 'Solar', hours: `${alldata.solar.operating_hours} hrs`, power: `${alldata.solar.avg_total_generation} kWh`, cost: 0.5 * alldata.solar.avg_total_generation, costColor: '#57EB66' },
-                                    { src: './assets/Icons-z.png', name: 'Wind', hours: alldata.wind.operating_hours + ' hrs', power: alldata.wind.avg_total_generation + 'kWh', cost: alldata.wind.avg_total_generation, costColor: '#57EB66' },
-                                    { src: './assets/Icons-y.png', name: 'Biogas', hours: alldata.biogas.operating_hours + ' hrs', power: alldata.biogas.avg_total_generation + ' kWh', cost: alldata.biogas.avg_total_generation, costColor: '#57EB66' },
-                                    { src: './assets/Icons-x.png', name: 'ESS', hours: alldata.ess.operating_hours + ' hrs', power: alldata.ess.avg_total_generation + ' kWh', cost: alldata.ess.avg_total_generation, costColor: '#57EB66' },
-                                    { src: './assets/Icons-w.png', name: 'Genset', hours: alldata.genset.operating_hours + ' hrs', power: alldata.genset.avg_total_generation + ' kWh', cost: 25 * alldata.genset.avg_total_generation, costColor: '#EB5757' },
-                                    { src: './assets/Icons-u.png', name: 'Mains', hours: alldata.mains.operating_hours + ' hrs', power: alldata.mains.avg_total_generation + ' kWh', cost: 17 * alldata.mains.avg_total_generation, costColor: '#EB5757' },
+                                    { src: './assets/Icons.png', name: 'Solar', hours: `${alldata.solar?.operating_hours || 0} hrs`, power: `${alldata.solar.kwh} kWh`, cost: 0.5 * alldata.solar.kwh, costColor: '#57EB66' },
+                                    { src: './assets/Icons-z.png', name: 'Wind', hours: `${alldata.wind?.operating_hours || 0} hrs`, power: alldata.wind.kwh + 'kWh', cost: alldata.wind.kwh, costColor: '#57EB66' },
+                                    { src: './assets/Icons-y.png', name: 'Biogas', hours: `${alldata.biogas?.operating_hours || 0}  hrs`, power: alldata.biogas.kwh + ' kWh', cost: alldata.biogas.kwh, costColor: '#57EB66' },
+                                    { src: './assets/Icons-x.png', name: 'ESS', hours: `${alldata.ess?.operating_hours || 0}  hrs`, power: alldata.ess.kwh + ' kWh', cost: alldata.ess.kwh, costColor: '#57EB66' },
+                                    { src: './assets/Icons-w.png', name: 'Genset', hours: `${alldata.genset?.operating_hours || 0} hrs`, power: alldata.genset.kwh + ' kWh', cost: 25 * alldata.genset.kwh, costColor: '#EB5757' },
+                                    { src: './assets/Icons-u.png', name: 'Mains', hours: `${alldata.mains?.operating_hours || 0} hrs`, power: alldata.mains.kwh + ' kWh', cost: 17 * alldata.mains.kwh, costColor: '#EB5757' },
                                 ].map((item, index) => (
                                     <tr key={index}>
                                         <td className="bg-[#051E1C] text-[#CACCCC] text-base xl:text-lg flex items-center gap-2 p-4 rounded-tl-lg rounded-bl-lg">
@@ -501,14 +564,14 @@ const Overview = ({ BaseUrl, Url }) => {
                     <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
                         <img src="assets/Vector 3.svg" className="p-1.5 w-[160px]" alt='image' />
                         <div className="flex flex-col items-start p-1.5 ml-2.5">
-                            <h6 id="avg-kw" className="text-white text-lg mb-1.5">{average_power_kwh} kW</h6>
+                            <h6 id="avg-kw" className="text-white text-lg mb-1.5">{(average_power_kwh ?? 0).toFixed(2)} kW</h6>
                             <p className="text-[#7A7F7F] text-sm xl:text-base mb-1.5">Average Power (kWh)</p>
                         </div>
                     </div>
                     <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
                         <img src="assets/Frame 1000001841.svg" className="p-1.5 w-[160px]" alt='image' />
                         <div className="flex flex-col items-start p-1.5 ml-2.5">
-                            <h6 id="avg-kv" className="text-white text-lg mb-1.5">{average_power_kVA} kW</h6>
+                            <h6 id="avg-kv" className="text-white text-lg mb-1.5">{(average_power_kVA ?? 0).toFixed(2)} kW</h6>
                             <p className="text-[#7A7F7F] text-sm xl:text-base mb-1.5 ">Average Power (kVA)</p>
                         </div>
                     </div>
@@ -575,7 +638,7 @@ const Overview = ({ BaseUrl, Url }) => {
                 </div>
             </div>
             {/* Fourth Row Section */}
-            <div className="grid grid-cols-[36%_18%_44.2%] gap-4 pr-3 pb-5 mt-3.5">
+            <div className="grid grid-cols-[36%_18%_44.2%] gap-4 pr-3 mt-3.5">
                 <div className="grid">
                     <div className="bg-[#051e1c] rounded-lg pr-5 flex flex-col justify-evenly">
                         <div className="flex items-center justify-between gap-5 ml-5">
@@ -583,17 +646,17 @@ const Overview = ({ BaseUrl, Url }) => {
                                 <img src="assets/pink.svg" className="mr-2.5 align-middle inline-block" alt="Energy Icon" />
                                 Total Energy Generated
                             </div>
-                            <div className="text-white text-lg ml-2.5 m-0 md:text-base text-nowrap" id="total">{(Number(alldata.solar.avg_total_generation) || 0) +
-                                (Number(alldata.genset.avg_total_generation) || 0) + (Number(alldata.wind.avg_total_generation) || 0) + (Number(alldata.biogas.avg_total_generation) || 0)} (kWh)</div>
+                            <div className="text-white text-lg ml-2.5 m-0 md:text-base text-nowrap" id="total">{(Number(alldata.solar.kwh) || 0) +
+                                (Number(alldata.genset.kwh) || 0) + (Number(alldata.wind.kwh) || 0) + (Number(alldata.biogas.kwh) || 0)} (kWh)</div>
                         </div>
                         <div className="mb-0">
                             <div className="flex items-center justify-between ml-5 mb-3">
                                 <p className="text-sm xl:text-base text-[#AFB2B2] m-0">From Renewable Resources</p>
-                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="renew">{(Number(alldata.solar.avg_total_generation) || 0) + (Number(alldata.wind.avg_total_generation) || 0) + (Number(alldata.biogas.avg_total_generation) || 0)} (kWh)</p>
+                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="renew">{(Number(alldata.solar.kwh) || 0) + (Number(alldata.wind.kwh) || 0) + (Number(alldata.biogas.kwh) || 0)} (kWh)</p>
                             </div>
                             <div className="flex items-center justify-between ml-5 mb-0">
                                 <p className="text-sm xl:text-base text-[#AFB2B2] m-0">From Non-Renewable Resources</p>
-                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="non-renew">{alldata.genset.avg_total_generation} (kWh)</p>
+                                <p className="text-sm xl:text-base text-[#AFB2B2] m-0 ml-2.5 whitespace-nowrap" id="non-renew">{alldata.genset.kwh} (kWh)</p>
                             </div>
                         </div>
                     </div>

@@ -15,8 +15,8 @@ import ProtectedRoute from './Components/ProtectedRoute';
 import './App.css';
 
 const App = () => {
-  const BaseUrl = "http://13.126.205.156/micro"
-  //const BaseUrl = "http://localhost:5000/micro"
+  //const BaseUrl = "http://13.126.205.156/micro"
+  const BaseUrl = "http://localhost:5000/micro"
 
   const [routeData, setRouteData] = useState();
 
