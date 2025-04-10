@@ -14,9 +14,10 @@ const Overview = ({ BaseUrl, Url }) => {
     const [loading, setLoading] = useState(true);
     const [imageLoaded, setImageLoaded] = useState(false);
     let resizeTimeout = null;
-    const [data, setData] = useState({});
+    const [dataAverage, setDataAverage] = useState([]);
     const [alldata, setAllData] = useState({});
     const [chartData, setChartData] = useState([]);
+    const chartRef = useRef();
 
     useEffect(() => {
         const fetchPowerData = async () => {
@@ -35,12 +36,13 @@ const Overview = ({ BaseUrl, Url }) => {
         return () => clearInterval(interval);
     }, []);
 
-    const fetchConfig = () => {
-        fetch(`${BaseUrl}/overview`)
+    const fetchConfig = async() => {
+        await fetch(`${BaseUrl}/overview`)
             .then((response) => response.json())
             .then((data) => {
                 setAllData(data)
-                setData(data.overview);
+                console.log(data)
+                setDataAverage(data.average);
                 setLoading(false);
             })
             .catch((error) => {
@@ -310,60 +312,72 @@ const Overview = ({ BaseUrl, Url }) => {
     };
 
     const images = [
-        { src: "assets/image 12.png", label: "WIND", hours: !loading && alldata.wind.operating_hours, generations: !loading && alldata.wind.kwh, status:
-            !loading && alldata.wind.voltagel.phase1 > 200 &&
-            !loading && alldata.wind.voltagel.phase2 > 200 &&
-            !loading && alldata.wind.voltagel.phase3 > 200 &&
-            !loading && alldata.wind.kW.phase1 >= 1 &&
-            !loading && alldata.wind.kW.phase2 >= 1 &&
-            !loading && alldata.wind.kW.phase3 >= 1
-              ? "active"
-              : "inactive"  },
-        { src: "assets/image 13.png", label: "SOLAR", hours: !loading && alldata.solar.operating_hours, generations: !loading && alldata.solar.kwh, status:
-            !loading && alldata.solar.voltagel.phase1 > 200 &&
-            !loading && alldata.solar.voltagel.phase2 > 200 &&
-            !loading && alldata.solar.voltagel.phase3 > 200 &&
-            !loading && alldata.solar.kW.phase1 >= 1 &&
-            !loading && alldata.solar.kW.phase2 >= 1 &&
-            !loading && alldata.solar.kW.phase3 >= 1
-              ? "active"
-              : "inactive"  },
-        { src: "assets/image 11.png", label: "BIOGAS", hours: !loading && alldata.biogas.operating_hours, generations: !loading && alldata.biogas.kwh, status:
-            !loading && alldata.biogas.voltagel.phase1 > 200 &&
-            !loading && alldata.biogas.voltagel.phase2 > 200 &&
-            !loading && alldata.biogas.voltagel.phase3 > 200 &&
-            !loading && alldata.biogas.kW.phase1 >= 1 &&
-            !loading && alldata.biogas.kW.phase2 >= 1 &&
-            !loading && alldata.biogas.kW.phase3 >= 1
-              ? "active"
-              : "inactive"  },
-        { src: "assets/image 14.png", label: "MAINS", hours: !loading && alldata.mains.operating_hours, generations: !loading && alldata.mains.kwh, status:
-            !loading && alldata.mains.voltagel.phase1 > 200 &&
-            !loading && alldata.mains.voltagel.phase2 > 200 &&
-            !loading && alldata.mains.voltagel.phase3 > 200 &&
-            !loading && alldata.mains.kW.phase1 >= 1 &&
-            !loading && alldata.mains.kW.phase2 >= 1 &&
-            !loading && alldata.mains.kW.phase3 >= 1
-              ? "active"
-              : "inactive"  },
-        { src: "assets/image 16.png", label: "ESS", hours: !loading && alldata.ess.operating_hours, generations: !loading && alldata.ess.kwh, status:
-            !loading && alldata.ess.voltagel.phase1 > 200 &&
-            !loading && alldata.ess.voltagel.phase2 > 200 &&
-            !loading && alldata.ess.voltagel.phase3 > 200 &&
-            !loading && alldata.ess.kW.phase1 >= 1 &&
-            !loading && alldata.ess.kW.phase2 >= 1 &&
-            !loading && alldata.ess.kW.phase3 >= 1
-              ? "active"
-              : "inactive"  },
-        { src: "assets/image 15.png", label: "GENSET", hours: !loading && alldata.genset.operating_hours, generations: !loading && alldata.genset.kwh, status:
-            !loading && alldata.genset.voltagel.phase1 > 200 &&
-            !loading && alldata.genset.voltagel.phase2 > 200 &&
-            !loading && alldata.genset.voltagel.phase3 > 200 &&
-            !loading && alldata.genset.kW.phase1 >= 1 &&
-            !loading && alldata.genset.kW.phase2 >= 1 &&
-            !loading && alldata.genset.kW.phase3 >= 1
-              ? "active"
-              : "inactive"  },
+        {
+            src: "assets/image 12.png", label: "WIND", hours: !loading && alldata.wind.operating_hours, generations: !loading && alldata.wind.kwh, status:
+                !loading && alldata.wind.voltagel.phase1 > 200 &&
+                    !loading && alldata.wind.voltagel.phase2 > 200 &&
+                    !loading && alldata.wind.voltagel.phase3 > 200 &&
+                    !loading && alldata.wind.kW.phase1 >= 1 &&
+                    !loading && alldata.wind.kW.phase2 >= 1 &&
+                    !loading && alldata.wind.kW.phase3 >= 1
+                    ? "active"
+                    : "inactive"
+        },
+        {
+            src: "assets/image 13.png", label: "SOLAR", hours: !loading && alldata.solar.operating_hours, generations: !loading && alldata.solar.kwh, status:
+                !loading && alldata.solar.voltagel.phase1 > 200 &&
+                    !loading && alldata.solar.voltagel.phase2 > 200 &&
+                    !loading && alldata.solar.voltagel.phase3 > 200 &&
+                    !loading && alldata.solar.kW.phase1 >= 1 &&
+                    !loading && alldata.solar.kW.phase2 >= 1 &&
+                    !loading && alldata.solar.kW.phase3 >= 1
+                    ? "active"
+                    : "inactive"
+        },
+        {
+            src: "assets/image 11.png", label: "BIOGAS", hours: !loading && alldata.biogas.operating_hours, generations: !loading && alldata.biogas.kwh, status:
+                !loading && alldata.biogas.voltagel.phase1 > 200 &&
+                    !loading && alldata.biogas.voltagel.phase2 > 200 &&
+                    !loading && alldata.biogas.voltagel.phase3 > 200 &&
+                    !loading && alldata.biogas.kW.phase1 >= 1 &&
+                    !loading && alldata.biogas.kW.phase2 >= 1 &&
+                    !loading && alldata.biogas.kW.phase3 >= 1
+                    ? "active"
+                    : "inactive"
+        },
+        {
+            src: "assets/image 14.png", label: "MAINS", hours: !loading && alldata.mains.operating_hours, generations: !loading && alldata.mains.kwh, status:
+                !loading && alldata.mains.voltagel.phase1 > 200 &&
+                    !loading && alldata.mains.voltagel.phase2 > 200 &&
+                    !loading && alldata.mains.voltagel.phase3 > 200 &&
+                    !loading && alldata.mains.kW.phase1 >= 1 &&
+                    !loading && alldata.mains.kW.phase2 >= 1 &&
+                    !loading && alldata.mains.kW.phase3 >= 1
+                    ? "active"
+                    : "inactive"
+        },
+        {
+            src: "assets/image 16.png", label: "ESS", hours: !loading && alldata.ess.operating_hours, generations: !loading && alldata.ess.kwh, status:
+                !loading && alldata.ess.voltagel.phase1 > 200 &&
+                    !loading && alldata.ess.voltagel.phase2 > 200 &&
+                    !loading && alldata.ess.voltagel.phase3 > 200 &&
+                    !loading && alldata.ess.kW.phase1 >= 1 &&
+                    !loading && alldata.ess.kW.phase2 >= 1 &&
+                    !loading && alldata.ess.kW.phase3 >= 1
+                    ? "active"
+                    : "inactive"
+        },
+        {
+            src: "assets/image 15.png", label: "GENSET", hours: !loading && alldata.genset.operating_hours, generations: !loading && alldata.genset.kwh, status:
+                !loading && alldata.genset.voltagel.phase1 > 200 &&
+                    !loading && alldata.genset.voltagel.phase2 > 200 &&
+                    !loading && alldata.genset.voltagel.phase3 > 200 &&
+                    !loading && alldata.genset.kW.phase1 >= 1 &&
+                    !loading && alldata.genset.kW.phase2 >= 1 &&
+                    !loading && alldata.genset.kW.phase3 >= 1
+                    ? "active"
+                    : "inactive"
+        },
     ];
 
 
@@ -401,7 +415,141 @@ const Overview = ({ BaseUrl, Url }) => {
         'rgba(176, 197, 164, 1)',
         'rgba(242, 193, 141, 1)'];
 
-    const saving = !loading && 0.5 * alldata.solar.kwh - (17 * alldata.mains.kwh + 25 * alldata.genset.kwh)
+    useEffect(() => {
+        if (!loading) {
+            d3.select(chartRef.current).selectAll("*").remove();
+
+            const container = chartRef.current;
+            const margin = { top: 30, right: 20, bottom: 70, left: 50 };
+            const width = container.offsetWidth - margin.left - margin.right;
+            const height = container.offsetHeight - margin.top - margin.bottom;
+
+            const svg = d3
+                .select(chartRef.current)
+                .append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleBand().domain(dataAverage.map((d) => d.day)).range([0, width]).padding(0.5);
+            const y = d3.scaleLinear().domain([0, 3000]).nice().range([height, 0]);
+
+            // Gridlines
+            const gridLines = (g, axis) => {
+                g.call(axis)
+                    .selectAll("line")
+                    .attr("stroke", "#565656")
+                    .attr("stroke-dasharray", "4");
+                g.selectAll(".domain").remove();
+            };
+
+            svg.append("g").call(gridLines, d3.axisLeft(y).ticks(4).tickSize(-width).tickFormat(""));
+            svg.append("line").attr("x1", 0).attr("x2", 0).attr("y1", 0).attr("y2", height).attr("stroke", "#565656").attr("stroke-dasharray", "4");
+            svg.append("line").attr("x1", width).attr("x2", width).attr("y1", 0).attr("y2", height).attr("stroke", "#565656").attr("stroke-dasharray", "4");
+            svg.append("g").attr("transform", `translate(0,${height})`).call(gridLines, d3.axisBottom(x).tickSize(-height).tickFormat(""));
+
+            svg.append("g")
+                .selectAll("text")
+                .data([0, 1000, 2000, 3000])
+                .enter()
+                .append("text")
+                .attr("x", -10)
+                .attr("y", (d) => y(d))
+                .attr("text-anchor", "end")
+                .attr("alignment-baseline", "middle")
+                .attr("fill", "#aaaaaa")
+                .style("font-size", "14px")
+                .text((d) => (d === 0 ? "0" : d / 1000 + "K"));
+
+            if (!tooltipRef.current) {
+                tooltipRef.current = d3.select('body')
+                    .append('div')
+                    .attr('class', 'tooltip')
+                    .style('opacity', 0);
+            }
+
+            // Bar setup
+            const barWidth = x.bandwidth() / 2.5;
+            const barGroups = svg.selectAll(".bar-group").data(dataAverage).enter().append("g").attr("transform", (d) => `translate(${x(d.day)},0)`);
+
+            const createBar = (barClass, dataKey, color, xOffset) => {
+                barGroups
+                    .filter((d) => d[dataKey] > 0)
+                    .append("rect")
+                    .attr("class", barClass)
+                    .attr("x", xOffset)
+                    .attr("y", (d) => y(d[dataKey]))
+                    .attr("width", barWidth)
+                    .attr("height", (d) => height - y(d[dataKey]))
+                    .attr("fill", color)
+                    .attr("rx", 5)
+                    .attr("ry", 5)
+                    .on("mousemove", function (event, d) {
+                        const [mouseX] = d3.pointer(event);
+
+                        if (d) {
+                            tooltipRef.current
+                                .style("opacity", 0.9)
+                                .html(`<strong>${d.day}</strong>: ${d[dataKey]}`)
+                                .style("left", `${event.pageX + 10}px`)
+                                .style("top", `${event.pageY - 28}px`);
+                        }
+                    })
+                    .on("mouseout", function () {
+                        tooltipRef.current.style("opacity", 0);
+                    });
+            };
+
+            // Draw bars
+            createBar("bar last-week", "lastWeek", "#565656", (d) => (d.thisWeek === 0 ? (x.bandwidth() - barWidth) / 2 : (x.bandwidth() - barWidth * 2) / 3));
+            createBar("bar this-week", "thisWeek", "#51C18B", (d) => (d.lastWeek === 0 ? (x.bandwidth() - barWidth) / 2 : (x.bandwidth() - barWidth * 2) / 3 + barWidth + (x.bandwidth() - barWidth * 2) / 3));
+
+            // X-axis labels
+            svg.append("g")
+                .attr("transform", `translate(0,${height + 20})`)
+                .selectAll("text")
+                .data(dataAverage)
+                .enter()
+                .append("text")
+                .attr("x", (d) => x(d.day) + x.bandwidth() / 2)
+                .attr("text-anchor", "middle")
+                .attr("fill", "#ffffff")
+                .style("font-size", "12px")
+                .text((d) => d.day);
+
+            // Legend setup
+            const legend = svg.append("g").attr("transform", `translate(${width - 190}, ${height + 45})`);
+
+            const createLegendItem = (xPos, color, text, gap = 0) => {
+                legend
+                    .append("rect")
+                    .attr("x", xPos + gap)
+                    .attr("y", 0)
+                    .attr("width", 16)
+                    .attr("height", 16)
+                    .attr("fill", color);
+
+                legend
+                    .append("text")
+                    .attr("x", xPos + 20 + gap)
+                    .attr("y", 12)
+                    .attr("fill", "#ffffff")
+                    .style("font-size", "14px")
+                    .text(text);
+            };
+
+            const gapBetweenItems = 10;
+
+            createLegendItem(-20, "#565656", "Last Week");
+            createLegendItem(100 + gapBetweenItems, "#51C18B", "This Week");
+        }
+
+    }, [loading, dataAverage]);
+
+
+    //const saving = !loading && 0.5 * alldata.solar.kwh - (17 * alldata.mains.kwh + 25 * alldata.genset.kwh)
+    const saving = 0;
     const before_yesterday_data = !loading && (alldata.solar.power_generated_before_yesterday + alldata.mains.power_generated_before_yesterday + alldata.genset.power_generated_before_yesterday + alldata.wind.power_generated_before_yesterday + alldata.biogas.power_generated_before_yesterday + alldata.ess.power_generated_before_yesterday)
     const yesterday_data = !loading && (alldata.solar.power_generated_yesterday + alldata.mains.power_generated_yesterday + alldata.genset.power_generated_yesterday + alldata.wind.power_generated_yesterday + alldata.biogas.power_generated_yesterday + alldata.ess.power_generated_yesterday)
     const average_power_kwh = !loading && (before_yesterday_data - yesterday_data) / 24;
@@ -410,6 +558,10 @@ const Overview = ({ BaseUrl, Url }) => {
     const total_generation = !loading && alldata.solar.avg_daily_total_generation + alldata.mains.avg_daily_total_generation;
     const total_daily_kwh = !loading && chartData.reduce((sum, row) => sum + row.kwh_reading, 0)
 
+    const totalThisWeek = !loading && dataAverage.reduce(
+        (sum, day) => sum + parseFloat(day.thisWeek),
+        0
+    );
     return (
         !loading && <div className="p-4">
             {/* First Row Section */}
@@ -428,8 +580,8 @@ const Overview = ({ BaseUrl, Url }) => {
                                     onLoad={handleImageLoad}
                                     onError={handleImageError}
                                 />
-                                {image.status === 'active' && 
-                                <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#199E2E12,#199E2E80)] opacity-70 rounded-md"></div>}
+                                {image.status === 'active' &&
+                                    <div className="absolute inset-0 bg-[linear-gradient(to_bottom,#199E2E12,#199E2E80)] opacity-70 rounded-md"></div>}
                                 <div className="absolute -top-1 -right-1 transform translate-x-[-20%] translate-y-[20%] p-2 bg-transparent text-white rounded-md z-10 flex items-center max-w-[calc(100%-40px)] ">
                                     <div className="flex items-center">
                                         <div>
@@ -560,20 +712,18 @@ const Overview = ({ BaseUrl, Url }) => {
             </div>
             {/* Third Row Section */}
             <div className="grid grid-cols-[35.8%_22%_22%_17%] mt-2 gap-4 mr-2">
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
-                        <img src="assets/Vector 3.svg" className="p-1.5 w-[160px]" alt='image' />
-                        <div className="flex flex-col items-start p-1.5 ml-2.5">
-                            <h6 id="avg-kw" className="text-white text-lg mb-1.5">{(average_power_kwh ?? 0).toFixed(2)} kW</h6>
+                <div className="grid">
+                    <div className="bg-[#051e1c] rounded-lg flex flex-col items-center">
+                        <div className='flex justify-between items-center w-full p-3'>
+                            <p className='text-base xl:text-lg font-medium text-white'>Weekly Energy Generated</p>
+                            <p className='text-base xl:text-lg font-medium text-white'>{totalThisWeek.toFixed(2)} kWh</p>
+                        </div>
+                        <div ref={chartRef} className="w-full h-full max-w-4xl"></div>
+                        {/* <img src="assets/Vector 3.svg" className="p-1.5 w-[200px]" alt='image' />
+                        <div className="flex flex-col items-start p-1.5 gap-2">
+                            <h6 id="avg-kw" className="text-white text-lg mb-1.5">{(average_power_kwh ?? 0).toFixed(2)} kWh</h6>
                             <p className="text-[#7A7F7F] text-sm xl:text-base mb-1.5">Average Power (kWh)</p>
-                        </div>
-                    </div>
-                    <div className="bg-[#051e1c] rounded-lg flex flex-col justify-around items-center">
-                        <img src="assets/Frame 1000001841.svg" className="p-1.5 w-[160px]" alt='image' />
-                        <div className="flex flex-col items-start p-1.5 ml-2.5">
-                            <h6 id="avg-kv" className="text-white text-lg mb-1.5">{(average_power_kVA ?? 0).toFixed(2)} kW</h6>
-                            <p className="text-[#7A7F7F] text-sm xl:text-base mb-1.5 ">Average Power (kVA)</p>
-                        </div>
+                        </div> */}
                     </div>
                 </div>
                 <div className="flex flex-col gap-4 justify-between">
@@ -604,7 +754,7 @@ const Overview = ({ BaseUrl, Url }) => {
                             <svg width="60" height="60" viewBox="0 0 38 38">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0F5B53" strokeWidth="5" strokeDasharray="100, 100" strokeLinecap="round" />
                                 <path id="myPathess" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#48D0D0" strokeWidth="5" strokeDasharray={`${alldata.ess.soc}, 100`} strokeLinecap="round" />
-                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="ess">{alldata.ess.soc}%</text>
+                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="ess">{Math.floor(alldata.ess.soc)}%</text>
                             </svg>
                         </div>
                         <p className="text-sm xl:text-base text-[#CACCCC] ml-5">Energy Stored (ESS)</p>
@@ -614,7 +764,7 @@ const Overview = ({ BaseUrl, Url }) => {
                             <svg width="60" height="60" viewBox="0 0 37 37">
                                 <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#0F5B53" strokeWidth="5" strokeDasharray="100, 100" strokeLinecap="round" />
                                 <path id="myPathsoc" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#D8D362" strokeWidth="5" strokeDasharray={`${alldata.ess.soc}, 100`} strokeLinecap="round" />
-                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="soc">{alldata.ess.soc}%</text>
+                                <text x="18" y="20.35" textAnchor="middle" fontSize="8px" fill="white" fontFamily="Arial" id="soc">{Math.floor(alldata.ess.soc)}%</text>
                             </svg>
                         </div>
                         <p className="text-sm xl:text-base text-[#CACCCC] ml-5">SOC (ESS)</p>

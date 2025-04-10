@@ -13,10 +13,11 @@ import Alerts from './Screens/Alert';
 import Ess from './Screens/Ess';
 import ProtectedRoute from './Components/ProtectedRoute';
 import './App.css';
+import Excel from './Screens/Excel';
 
 const App = () => {
-  //const BaseUrl = "http://13.126.205.156/micro"
-  const BaseUrl = "http://localhost:5000/micro"
+  const BaseUrl = "http://13.126.205.156/micro"
+  //const BaseUrl = "http://localhost:5000/micro"
 
   const [routeData, setRouteData] = useState();
 
@@ -109,6 +110,7 @@ const App = () => {
                   <Alerts BaseUrl={BaseUrl} />
                // </ProtectedRoute>
               } />
+              <Route path="/excel" element={<Excel BaseUrl = {BaseUrl}/>} />
             </Routes>
           </div>
         </div>

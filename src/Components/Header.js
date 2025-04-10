@@ -12,7 +12,7 @@ const Header = () => {
 
     return (
         <header className="p-2 w-full bg-gradient-to-r from-custom-green to-custom-dark">
-            <nav>
+           {location.pathname !== '/excel' &&    <nav>
                 <ul className="flex flex-wrap">
                     <Link to="/" onClick={() => handleLinkClick("/")} className="cursor-pointer">
                         <li className={`px-5 py-2 transition-colors duration-300 text-lg ${active === '/' ? 'text-white border-b-2 border-[#C37C5A]' : 'text-[#7A7F7F] border-b border-[#0A3D38]'}`}>
@@ -55,7 +55,7 @@ const Header = () => {
                         </li>
                     </Link>
                 </ul>
-            </nav>
+            </nav> }
         </header>
     );
 };

@@ -62,6 +62,15 @@
   /* Width of the scrollbar */
 }
 
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+
 .custom-body::-webkit-scrollbar-track {
   background: #0F544C;
   /* Background of the scrollbar track */
