@@ -7,7 +7,7 @@ const Navbar = () => {
 
     const handleLogOut = () =>{
         // localStorage.removeItem('token')
-        // window.location.href = "http://13.126.205.156:8082/"
+         window.location.href = "https://koelsmartenergy.com/"
     }
     
     return (

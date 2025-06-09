@@ -24,6 +24,7 @@ const Overview = ({ BaseUrl, Url }) => {
             try {
                 const response = await fetch(`${BaseUrl}/overview/chart`);
                 const result = await response.json();
+                console.log(result)
                 setChartData(result);
             } catch (error) {
                 console.error('Error fetching power data:', error);
